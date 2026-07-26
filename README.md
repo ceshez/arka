@@ -109,32 +109,6 @@ pnpm build
 
 The production deployment is built from the public `main` branch on Vercel. Configure the same public Supabase and Nimiq variables for Preview and Production environments before deploying.
 
-## Competition submission copy (under 250 words)
-
-Arka is a mobile-first social payment Mini App for groups that need to collect contributions and settle a shared expense without juggling calculators, chat reminders, and separate payment apps.
-
-A host creates an Arka for a dinner, trip, gift, or event, chooses how to split the total, and shares a QR code, invite link, or join code. Guests can preview the group, join, see exactly what they owe, and pay their contribution in NIM. The host sees who has paid, how much has been collected, and when the Arka is ready for the final merchant payment.
-
-Nimiq Pay is central to the product. Inside Nimiq Pay, Arka requests wallet authorization and submits real NIM transactions through the Mini App provider. In a regular browser, it uses the official Nimiq Hub. Contributions go directly to the host's wallet, and Arka only shows a successful payment after the transaction is found on the Nimiq network. The host then settles the merchant with the collected NIM through the same wallet-confirmed flow.
-
-Arka is designed for everyday users, so the interface emphasizes familiar amounts, people, and payment status instead of blockchain jargon. It does not custody funds or claim to provide escrow.
-
-## Submission checklist
-
-- [x] Public GitHub repository
-- [x] MIT license
-- [x] Live HTTPS deployment
-- [x] NIM as the core payment asset
-- [x] Builder name and GitHub profile
-- [x] Written description under 250 words
-- [ ] Nimiq prize payout wallet added to the official submission
-- [ ] Manual QR, invite-link, and two-phone tests completed
-- [ ] Real low-value NIM contribution and settlement tests completed
-- [ ] Confirmed payment state synchronized across devices
-- [ ] Funded and verifiable 3% NIM cashback implemented
-- [ ] Demo video recorded
-- [ ] Skool early-access update published
-
 ## License
 
 Arka is released under the [MIT License](LICENSE).
