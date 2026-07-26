@@ -12,7 +12,6 @@ export function ArkasScreen() {
   const recentArkas = useArkaStore((state) => state.recentArkas)
   const activeArkas = recentArkas.filter((arka) => arka.status !== 'completed' && arka.status !== 'cancelled')
   const totalCollected = recentArkas.reduce((total, arka) => total + arka.collectedFiat, 0)
-  const cashbackEligible = recentArkas.reduce((total, arka) => total + Math.min(arka.collectedFiat, arka.paidMemberCount * 10) * 0.01, 0)
 
   return (
     <MobileScreen>
@@ -25,7 +24,7 @@ export function ArkasScreen() {
         >
           <p className="text-sm font-bold text-[#f7c842]">Collection snapshot</p>
           <p className="mt-1 text-4xl font-black tracking-[-0.03em]">{formatUsd(totalCollected)}</p>
-          <p className="mt-2 text-xs font-black text-[#f7c842]">Money moved · up to {formatUsd(cashbackEligible)} NIM cashback eligible</p>
+          <p className="mt-2 text-xs font-black text-[#f7c842]">Money moved with NIM host-wallet collection</p>
           <p className="mt-2 text-sm font-semibold text-white/65">
             {activeArkas.length} active Arkas · {recentArkas.length} recent in your pocket
           </p>

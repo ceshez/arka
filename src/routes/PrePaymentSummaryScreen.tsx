@@ -8,11 +8,13 @@ import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
 import { NimiqArrowLeft, NimiqArrowRight } from '../components/ui/NimiqIcon'
-import { formatUsd } from '../lib/arka/formatMoney'
 import { getNimiqWalletSurfaceName } from '../lib/nimiq/detectNimiqEnvironment'
 import { getRemainingPaymentAmounts } from '../lib/payments/getRemainingPaymentAmounts'
-import { paymentAssetSelectionKey, useArkaStore } from '../store/arkaStore'
+import { useArkaStore } from '../store/arkaStore'
 import { getGuestMember, getHostMember } from './routeUtils'
+
+const disabledPaymentAssets = ['USDT'] as const
+const keepNimSelected = () => undefined
 
 export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: 'guest' | 'host' }) {
   const { arkaId } = useParams()
@@ -21,8 +23,6 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
   const arka = useArkaStore((state) => state.getArka(arkaId))
   const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
   const simulateGuestPayment = useArkaStore((state) => state.simulateGuestPayment)
-  const paymentAssetSelections = useArkaStore((state) => state.paymentAssetSelections)
-  const setPaymentAsset = useArkaStore((state) => state.setPaymentAsset)
 
   if (!arka) return <Navigate to="/error/arka-not-found" replace />
   if (arka.status === 'expired') return <Navigate to="/error/arka-not-found" replace />
@@ -31,13 +31,9 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
   const payer = payerRole === 'host' ? getHostMember(activeArka) : getGuestMember(activeArka, currentGuestMemberId)
   if (!payer) return <Navigate to="/join" replace />
 
-  const usdtAvailable = Boolean(window.ethereum)
-  const savedPaymentAsset = paymentAssetSelections[paymentAssetSelectionKey(activeArka.id, payer.id)]
-    ?? activeArka.selectedAsset
-  const paymentAsset = savedPaymentAsset === 'USDT' && !usdtAvailable ? 'NIM' : savedPaymentAsset
+  const paymentAsset = 'NIM' as const
   const payerId = payer.id
   const remainingPayment = getRemainingPaymentAmounts(payer)
-  const cashbackFiat = Math.min(remainingPayment.amountFiat, 10) * 0.01
   const returnTo = payerRole === 'host' ? `/arka/${activeArka.id}/host/summary` : `/arka/${activeArka.id}/guest`
   const paymentPath = payerRole === 'host' ? `/arka/${activeArka.id}/host/pay` : `/arka/${activeArka.id}/pay`
   const successPath = payerRole === 'host'
@@ -106,10 +102,10 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
 
         <PaymentSummaryCard arka={activeArka} member={payer} asset={paymentAsset} />
 
-        <section aria-labelledby="payment-asset"><h2 id="payment-asset" className="text-base font-black">Choose how to pay</h2><p className="mt-1 text-sm font-semibold text-arka-muted">{usdtAvailable ? 'NIM is preferred and unlocks cashback. USDT is also available.' : 'NIM is available on this device. USDT requires the EVM wallet inside Nimiq Pay.'}</p><div className="mt-3"><AssetSelector value={paymentAsset} disabledAssets={usdtAvailable ? [] : ['USDT']} onChange={(asset) => setPaymentAsset(activeArka.id, payer.id, asset)} /></div></section>
+        <section aria-labelledby="payment-asset"><h2 id="payment-asset" className="text-base font-black">Mainnet payment asset</h2><p className="mt-1 text-sm font-semibold text-arka-muted">NIM is the live payment option. USDT stays disabled until its transfer and confirmation flow is complete.</p><div className="mt-3"><AssetSelector value={paymentAsset} disabledAssets={disabledPaymentAssets} onChange={keepNimSelected} /></div></section>
 
-        <section className={`rounded-[1.4rem] border p-4 shadow-[0_8px_20px_rgba(125,87,0,0.08)] ${paymentAsset === 'NIM' ? 'border-[#e7c95e] bg-[#fff3c7]' : 'border-[#e5ded4] bg-white'}`} aria-live="polite">
-          <div className="flex items-start gap-3"><span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${paymentAsset === 'NIM' ? 'bg-[#1b1c19] text-[#f7c842]' : 'bg-[#f2efe8] text-arka-muted'}`}><Gift size={21} /></span><div><p className="text-base font-black">{paymentAsset === 'NIM' ? 'Your NIM cashback is ready' : 'NIM unlocks cashback'}</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">{paymentAsset === 'NIM' ? `You are eligible for 1% back on the first $10 of this share — up to ${formatUsd(cashbackFiat)} in NIM value.` : 'Switch to NIM in your Arka to earn 1% cashback on the first $10 of your share.'}</p></div></div>
+        <section className="rounded-[1.4rem] border border-[#e7c95e] bg-[#fff3c7] p-4 shadow-[0_8px_20px_rgba(125,87,0,0.08)]" aria-live="polite">
+          <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#1b1c19] text-[#f7c842]"><Gift size={21} /></span><div><p className="text-base font-black">3% NIM cashback coming next</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">Cashback is not active during mainnet testing. Arka will enable it after the reward wallet and payout confirmation are implemented.</p></div></div>
         </section>
 
         <p className="flex items-center justify-center gap-2 text-center text-sm font-semibold text-arka-muted">

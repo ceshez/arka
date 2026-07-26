@@ -28,6 +28,8 @@ export const miniAppNimiqProvider: NimiqPaymentProvider = {
     try {
       const provider = await init({ timeout: 8_000 })
       await provider.connect()
+      const hasConsensus = await provider.isConsensusEstablished()
+      if (!hasConsensus) throw new Error('Nimiq network consensus is not established')
       const transaction = {
         recipient: request.recipientWalletAddress,
         value: nimToLuna(request.amountNim),

@@ -21,7 +21,7 @@ export function AssetSelector({
 }: {
   value: AssetSymbol
   onChange: (value: AssetSymbol) => void
-  disabledAssets?: AssetSymbol[]
+  disabledAssets?: readonly AssetSymbol[]
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#eadcc8] bg-white p-1">
@@ -38,7 +38,7 @@ export function AssetSelector({
           )}
           aria-pressed={value === asset}
           disabled={disabled}
-          title={disabled ? `${asset} is available inside Nimiq Pay` : undefined}
+          title={disabled ? `${asset} is not available in Arka yet` : undefined}
           onClick={() => onChange(asset)}
         >
           <span className={cn('grid size-6 place-items-center', assetStyles[asset].icon === 'hex' ? 'arka-hex bg-[#E9B213]' : 'rounded-full bg-[#28c77b]')}>

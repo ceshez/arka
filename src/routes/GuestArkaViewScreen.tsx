@@ -79,7 +79,7 @@ export function GuestArkaViewScreen() {
           </div>
         </section>
 
-        {guest.status !== 'paid' && arka.status !== 'expired' ? <section className="mt-3 rounded-[1.25rem] border border-[#ead28c] bg-[#fff8e7] p-4" aria-live="polite"><p className="text-sm font-black text-[#5f4100]">1% NIM cashback</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">Choose NIM on the payment review to earn 1% cashback on the first $10 of your share.</p></section> : null}
+        {guest.status !== 'paid' && arka.status !== 'expired' ? <section className="mt-3 rounded-[1.25rem] border border-[#ead28c] bg-[#fff8e7] p-4" aria-live="polite"><p className="text-sm font-black text-[#5f4100]">3% NIM cashback planned</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">Cashback is not active yet. Arka will enable it after the reward payout flow is funded and verifiable.</p></section> : null}
 
         <section className="mt-3 rounded-[1.25rem] border border-[#e5d6c1] bg-white/92 p-4 shadow-[0_8px_20px_rgba(50,35,10,0.04)]" aria-labelledby="guest-members-title">
           <div className="mb-3 flex items-center justify-between gap-3">

@@ -1,119 +1,140 @@
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
 # Arka
 
-## Desktop and wallet testing
+Arka turns group payments into one simple flow: create a shared tab, invite friends by QR or join code, collect NIM contributions, and settle the final payment through Nimiq Pay.
 
-Arka keeps its existing mobile layout through 430px and adds a desktop shell
-from 1024px with a sidebar, wider content, and two-column dashboard layouts.
+- Live app: [arka-omega.vercel.app](https://arka-omega.vercel.app)
+- Public repository: [github.com/ceshez/arka](https://github.com/ceshez/arka)
+- Builder: [Carlos Sánchez](https://github.com/ceshez) (solo)
+- Competition: [Nimiq Mini Apps Competition](https://miniappscompetition.com/)
 
-- In Nimiq Pay, wallet access and NIM payments use `@nimiq/mini-app-sdk`.
-- In a regular desktop browser, wallet access and NIM payments use the official
-  Nimiq Hub popup.
-- Creating a real Arka requires a connected wallet so the invite contains the
-  host's actual Nimiq address. Guided demo Arkas continue to use mock payments.
+## What Arka solves
 
-Run `pnpm dev`, open `http://localhost:5173`, and select **Connect wallet**.
-Allow the popup and choose an address in Nimiq Wallet. For a phone test, open
-the Network URL inside Nimiq Pay.
+Splitting a group expense usually means juggling messages, calculations, payment reminders, and a final merchant payment. Arka keeps that journey in one mobile-first shared space. It is designed for friends, families, travel groups, dinners, gifts, and small events.
 
-## Cross-device invites
+## How it works
 
-Arka uses Supabase for real shared invite discovery and joining. Local browser
-storage is still used for device UI state, but it is not the source of truth
-for QR codes or join codes.
+1. The host connects a Nimiq wallet and creates an Arka with a total, deadline, and split method.
+2. Arka creates a shareable QR, invite link, and manual join code.
+3. Guests preview the Arka, join it, and see their exact share.
+4. Each guest sends NIM directly to the host wallet through Nimiq Pay or Nimiq Wallet.
+5. Arka marks a contribution as paid only after the transaction is found on the Nimiq network.
+6. Once the group is ready, the host pays the merchant with the collected NIM through Nimiq Pay.
 
-1. Create a Supabase project.
-2. Run every SQL file in [`supabase/migrations`](supabase/migrations) in filename order using the Supabase SQL editor or CLI.
-3. Copy `.env.example` to `.env.local`.
-4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from the Supabase Connect dialog. Legacy projects can use `VITE_SUPABASE_ANON_KEY`.
-5. Run `pnpm dev`.
+Arka uses host-wallet collection. It is not escrow, multisig, or a custodial wallet.
 
-The publishable or anonymous key is intended to be public. The migration enables RLS, removes
-direct browser access to the table, and grants only the four invite RPC
-functions. Never place a Supabase service-role key in a Vite environment
-variable.
+## Why Nimiq Pay
 
-The four invite RPCs are intentionally `SECURITY DEFINER` and executable only
-by `anon`, because opening a shared QR must work before Supabase authentication.
-The Security Advisor will continue to report the four `anon` warnings as
-reviewed exceptions. The functions use a restricted search path, timeouts,
-input/state validation, explicit grants, and no direct browser table access.
+NIM is the live payment asset and a core part of Arka, not a decorative integration. Inside Nimiq Pay, Arka uses the injected Mini App provider to request wallet access and submit basic NIM transactions. In a regular browser, it uses the official Nimiq Hub checkout. Private keys and seed phrases never enter Arka.
 
-For a phone test, open the deployed app (or the Vite LAN URL) on phone A,
-create an Arka, and scan its QR with phone B. Phone B opens the preview first
-and joins only after tapping **Join Arka**. Manual `ARKA-XXXXXXXX` entry follows
-the same preview flow.
+The production configuration uses the Nimiq mainnet Hub and a mainnet RPC endpoint. Before an in-app transfer, Arka checks that Nimiq consensus is available; after submission, it waits for network confirmation before updating local payment state.
+
+> Real-payment warning: mainnet actions move real NIM. Verify the recipient and amount in Nimiq Pay before approving. In Nimiq Pay, select the Default/Mainnet network for real tests.
+
+## Current features
+
+- NIM-first Arka creation
+- Equal, custom, consumption, and sponsor split modes
+- Cross-device invite discovery through QR, link, or `ARKA-XXXXXXXX` code
+- Guest preview and join flow
+- Host and guest payment dashboards
+- Real NIM contribution and merchant-settlement requests
+- Network-confirmed success states
+- Mobile-first honeycomb payment progress
+- Local activity, completed Arka history, and shareable receipt cards
+- Vercel Web Analytics and Speed Insights
+
+## Current limitations
+
+- Confirmed payments are stored locally after network confirmation; cross-device payment synchronization is still pending.
+- USDT checkout is disabled until the EVM transfer and confirmation path is implemented end to end.
+- The proposed 3% NIM cashback is not active yet. It requires a funded reward wallet, payout rules, confirmation, retry handling, and abuse protection before Arka can truthfully credit rewards.
+- QR, invitation, and two-phone payment flows still require the builder's manual device QA before submission.
+
+## Architecture
+
+```text
+Host creates Arka
+  -> Supabase invite RPC stores a public invite snapshot
+  -> Guest joins by QR, link, or code
+  -> Guest approves a NIM transfer in Nimiq Pay / Nimiq Hub
+  -> Nimiq mainnet RPC confirms the transaction
+  -> Arka updates the local member payment state
+  -> Host settles the merchant through Nimiq Pay / Nimiq Hub
+```
+
+Supabase is used only for shared invite discovery and membership snapshots. Browser roles do not receive direct table access. Payment-provider code remains isolated in `src/lib/nimiq`.
+
+## Tech stack
+
+- React 19, TypeScript, and Vite
+- Tailwind CSS
+- React Router and Zustand
+- `@nimiq/mini-app-sdk` and `@nimiq/hub-api`
+- Supabase for cross-device invites
+- `qrcode.react` and `qr-scanner`
+- Vercel Analytics and Speed Insights
+
+## Run locally
+
+Requirements: Node.js 20+ and pnpm.
+
+```bash
+pnpm install
+Copy-Item .env.example .env.local
+pnpm dev
+```
+
+For a real shared invite, create a Supabase project, apply every SQL file in `supabase/migrations` in filename order, and set:
+
+```dotenv
+VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
+
+The publishable/anonymous key is intended for browser use. Never place a Supabase `service_role` key, wallet secret, seed phrase, or private key in a `VITE_*` variable.
+
+Optional explicit mainnet configuration:
+
+```dotenv
+VITE_NIMIQ_RPC_URL=https://rpc.nimiqwatch.com
+VITE_NIMIQ_HUB_URL=https://hub.nimiq.com
+```
+
+## Validate and build
+
+```bash
+pnpm lint
+pnpm build
+```
+
+The production deployment is built from the public `main` branch on Vercel. Configure the same public Supabase and Nimiq variables for Preview and Production environments before deploying.
+
+## Competition submission copy (under 250 words)
+
+Arka is a mobile-first social payment Mini App for groups that need to collect contributions and settle a shared expense without juggling calculators, chat reminders, and separate payment apps.
+
+A host creates an Arka for a dinner, trip, gift, or event, chooses how to split the total, and shares a QR code, invite link, or join code. Guests can preview the group, join, see exactly what they owe, and pay their contribution in NIM. The host sees who has paid, how much has been collected, and when the Arka is ready for the final merchant payment.
+
+Nimiq Pay is central to the product. Inside Nimiq Pay, Arka requests wallet authorization and submits real NIM transactions through the Mini App provider. In a regular browser, it uses the official Nimiq Hub. Contributions go directly to the host's wallet, and Arka only shows a successful payment after the transaction is found on the Nimiq network. The host then settles the merchant with the collected NIM through the same wallet-confirmed flow.
+
+Arka is designed for everyday users, so the interface emphasizes familiar amounts, people, and payment status instead of blockchain jargon. It does not custody funds or claim to provide escrow.
+
+## Submission checklist
+
+- [x] Public GitHub repository
+- [x] MIT license
+- [x] Live HTTPS deployment
+- [x] NIM as the core payment asset
+- [x] Builder name and GitHub profile
+- [x] Written description under 250 words
+- [ ] Nimiq prize payout wallet added to the official submission
+- [ ] Manual QR, invite-link, and two-phone tests completed
+- [ ] Real low-value NIM contribution and settlement tests completed
+- [ ] Confirmed payment state synchronized across devices
+- [ ] Funded and verifiable 3% NIM cashback implemented
+- [ ] Demo video recorded
+- [ ] Skool early-access update published
+
+## License
+
+Arka is released under the [MIT License](LICENSE).

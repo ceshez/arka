@@ -7,7 +7,6 @@ import { HomeArkasHeader } from '../components/arka/HomeArkasHeader'
 import { YourPeopleSheet } from '../components/arka/YourPeopleSheet'
 import { MobileScreen } from '../components/ui/MobileScreen'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
-import { formatNim } from '../lib/arka/formatMoney'
 import { getSharedContacts } from '../lib/arka/getSharedContacts'
 import { useArkaStore } from '../store/arkaStore'
 import { useProfileStore } from '../store/profileStore'
@@ -20,7 +19,6 @@ export function HomeScreen() {
   const arkas = useArkaStore((state) => state.arkas)
   const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
   const recentArkas = useArkaStore((state) => state.recentArkas)
-  const payments = useArkaStore((state) => state.payments)
   const displayName = useProfileStore((state) => state.displayName)
   const wallet = useWalletStore((state) => state.wallet)
   const sharedContacts = useMemo(
@@ -38,13 +36,6 @@ export function HomeScreen() {
   const progress = activeArka
     ? Math.min(100, Math.round((activeArka.collectedFiat / activeArka.totalFiat) * 100))
     : 0
-  const cashbackNim = payments
-    .filter((payment) => payment.status === 'confirmed' && payment.type === 'member-contribution' && payment.asset === 'NIM')
-    .reduce((total, payment) => {
-      if (!payment.amountNim || payment.amountFiat <= 0) return total
-      return total + payment.amountNim * (Math.min(payment.amountFiat, 10) * 0.01 / payment.amountFiat)
-    }, 0)
-
   const openDemo = () => {
     const arka = startDemoArka()
     navigate(`/arka/${arka.id}/guest`)
@@ -70,22 +61,20 @@ export function HomeScreen() {
         <section
           className="relative mt-6 overflow-hidden rounded-2xl bg-[#111214] bg-cover bg-right-bottom bg-no-repeat p-5 text-white shadow-[0_8px_20px_rgba(27,28,25,0.15)]"
           style={{ backgroundImage: "linear-gradient(90deg, rgba(11,12,13,0.96) 0%, rgba(11,12,13,0.72) 52%, rgba(11,12,13,0.08) 100%), url('/brand/arka-card-texture-cropped.png')" }}
-          aria-label="Total cashback gained"
+          aria-label="NIM mainnet payment status"
         >
           <div className="relative flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#f7c842]">
-                {wallet ? 'Your total cashback gained' : 'Your Nimiq wallet'}
+                {wallet ? 'NIM payments' : 'Your Nimiq wallet'}
               </p>
               <h2 className="mt-3 text-[38px] font-black leading-none tracking-[-0.035em] !text-white">
-                {wallet ? formatNim(cashbackNim) : 'Connect wallet'}
+                {wallet ? 'Mainnet path' : 'Connect wallet'}
               </h2>
               <p className="mt-2 text-xs font-semibold text-white/65">
                 {wallet
-                  ? cashbackNim > 0
-                    ? 'Demo cashback from confirmed NIM shares.'
-                    : 'Pay with NIM to see cashback earned here.'
-                  : 'See your Nimiq identicon and cashback total.'}
+                  ? 'Real transfers require your approval in Nimiq Pay.'
+                  : 'Connect before creating a real Arka.'}
               </p>
             </div>
             {wallet

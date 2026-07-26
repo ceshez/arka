@@ -9,7 +9,6 @@ import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { formatNim } from '../lib/arka/formatMoney'
 import { getSharedContacts } from '../lib/arka/getSharedContacts'
 import { useArkaStore } from '../store/arkaStore'
 import { useProfileStore } from '../store/profileStore'
@@ -23,15 +22,8 @@ export function ProfileScreen() {
   const recentArkas = useArkaStore((state) => state.recentArkas)
   const arkas = useArkaStore((state) => state.arkas)
   const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
-  const payments = useArkaStore((state) => state.payments)
   const [draftName, setDraftName] = useState(displayName)
   const activeCount = recentArkas.filter((arka) => !['completed', 'cancelled'].includes(arka.status)).length
-  const cashbackNim = payments
-    .filter((payment) => payment.status === 'confirmed' && payment.type === 'member-contribution' && payment.asset === 'NIM')
-    .reduce((total, payment) => {
-      if (!payment.amountNim || payment.amountFiat <= 0) return total
-      return total + payment.amountNim * (Math.min(payment.amountFiat, 10) * 0.01 / payment.amountFiat)
-    }, 0)
   const wallet = useWalletStore((state) => state.wallet)
   const walletStatus = useWalletStore((state) => state.status)
   const walletError = useWalletStore((state) => state.error)
@@ -80,9 +72,9 @@ export function ProfileScreen() {
           <section className="grid grid-cols-3 gap-2.5" aria-label="Profile stats">
             <div className="rounded-2xl border border-[#e8e0d5] bg-white p-3"><WalletCards size={17} className="text-[#7d5700]" /><p className="mt-3 text-2xl font-black">{activeCount}</p><p className="text-[11px] font-bold leading-tight text-arka-muted">Active Arkas</p></div>
             <div className="rounded-2xl border border-[#e8e0d5] bg-white p-3"><UsersRound size={17} className="text-[#7d5700]" /><p className="mt-3 text-2xl font-black">{peopleCount}</p><p className="text-[11px] font-bold leading-tight text-arka-muted">People</p></div>
-            <div className="rounded-2xl border border-[#e6d09b] bg-[#fff8e7] p-3"><PiggyBank size={17} className="text-[#7d5700]" /><p className="mt-3 text-2xl font-black">{formatNim(cashbackNim)}</p><p className="text-[11px] font-bold leading-tight text-arka-muted">Cashback earned</p></div>
+            <div className="rounded-2xl border border-[#e6d09b] bg-[#fff8e7] p-3"><PiggyBank size={17} className="text-[#7d5700]" /><p className="mt-3 text-2xl font-black">3%</p><p className="text-[11px] font-bold leading-tight text-arka-muted">Cashback planned</p></div>
           </section>
-          <p className="-mt-2 text-xs font-semibold leading-5 text-arka-muted">{cashbackNim > 0 ? 'Demo cashback from confirmed NIM shares.' : 'Pay a share with NIM and confirmed cashback will appear here.'}</p>
+          <p className="-mt-2 text-xs font-semibold leading-5 text-arka-muted">Not active yet. Rewards need a funded wallet and confirmed payout flow.</p>
 
           {!hasUsername && isWalletConnected ? <button type="button" onClick={editUsername} className="flex min-h-16 w-full items-center gap-3 rounded-[1.3rem] border border-[#e7cf94] bg-[#fff8e7] px-4 text-left shadow-[0_6px_16px_rgba(125,87,0,0.06)] active:scale-[0.99]"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#1b1c19] text-[#f7c842]"><UserRound size={19} /></span><span className="min-w-0 flex-1"><strong className="block text-sm font-black">Choose a username</strong><span className="text-xs font-semibold text-arka-muted">It helps your group identify you in every Arka.</span></span><ChevronRight size={18} className="text-[#7d5700]" /></button> : null}
 
@@ -102,7 +94,7 @@ export function ProfileScreen() {
 
           <section className="flex items-center gap-3 rounded-[1.3rem] border border-[#e6d9be] bg-[#fcf8ef] p-4">
             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff0bd] text-[#7d5700]"><PiggyBank size={19} /></span>
-            <div><p className="text-sm font-black">NIM cashback</p><p className="mt-0.5 text-xs font-semibold leading-5 text-arka-muted">Pay with NIM to be eligible for 1% back on the first $10 of each share.</p></div>
+            <div><p className="text-sm font-black">3% NIM cashback planned</p><p className="mt-0.5 text-xs font-semibold leading-5 text-arka-muted">Arka will activate rewards only after funding and on-chain payout confirmation are implemented.</p></div>
           </section>
 
           <section className="overflow-hidden rounded-[1.45rem] border border-[#e7dfd4] bg-white shadow-[0_6px_16px_rgba(27,28,25,0.05)]">
