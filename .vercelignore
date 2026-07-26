@@ -1,0 +1,12 @@
+.agents
+.codebase-memory
+.env*
+.git
+artifacts
+cache
+dist
+docs
+node_modules
+test
+tests
+*.log

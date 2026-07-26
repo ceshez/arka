@@ -1,0 +1,53 @@
+{
+  "name": "arka",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm contracts:compile && vite",
+    "contracts:compile": "hardhat compile",
+    "contracts:test": "hardhat test",
+    "build": "pnpm contracts:compile && tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@nimiq/hub-api": "1.14.0",
+    "@nimiq/mini-app-sdk": "^0.1.0",
+    "@nimiq/style": "^0.8.5",
+    "@nimiq/utils": "^0.12.4",
+    "@supabase/supabase-js": "^2.110.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.42.2",
+    "identicons-esm": "^1.0.1",
+    "lucide-react": "^1.24.0",
+    "qr-scanner": "1.4.2",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "tailwind-merge": "^3.6.0",
+    "viem": "^2.55.5",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
+    "hardhat": "^3.11.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.62.0",
+    "vite": "^8.1.1"
+  }
+}

@@ -1,0 +1,23 @@
+node_modules
+dist
+artifacts
+cache
+.codebase-memory
+.env.local
+.vercel
+*.log
+*.tsbuildinfo
+
+# Local AI/Codex context — keep out of the repository
+.agents/
+.codex*
+AGENTS.md
+CODEX_TASKS.md
+DECISIONS.md
+PRODUCT.md
+skills-lock.json
+
+# Internal planning, research, competition notes, and design references
+docs/
+
+.vercel
