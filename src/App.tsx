@@ -17,6 +17,7 @@ const ArkaPreviewGuestScreen = lazy(async () => ({ default: (await import('./rou
 const CompletedArkaSummaryScreen = lazy(async () => ({ default: (await import('./routes/CompletedArkaSummaryScreen')).CompletedArkaSummaryScreen }))
 const CompletedArkasHistoryScreen = lazy(async () => ({ default: (await import('./routes/CompletedArkasHistoryScreen')).CompletedArkasHistoryScreen }))
 const CreateArkaScreen = lazy(async () => ({ default: (await import('./routes/CreateArkaScreen')).CreateArkaScreen }))
+const CashbackTreasuryScreen = lazy(async () => ({ default: (await import('./routes/CashbackTreasuryScreen')).CashbackTreasuryScreen }))
 const DualChainLabScreen = lazy(async () => ({ default: (await import('./routes/DualChainLabScreen')).DualChainLabScreen }))
 const GuestArkaViewScreen = lazy(async () => ({ default: (await import('./routes/GuestArkaViewScreen')).GuestArkaViewScreen }))
 const HomeScreen = lazy(async () => ({ default: (await import('./routes/HomeScreen')).HomeScreen }))
@@ -158,14 +159,13 @@ export function App() {
           <Route path="/wallet-lab" element={<DualChainLabScreen />} />
           <Route path="/people" element={<Navigate to="/profile" replace />} />
           <Route path="/create" element={<WalletConnectionGate><CreateArkaScreen /></WalletConnectionGate>} />
+          <Route path="/cashback/treasury" element={<WalletConnectionGate><CashbackTreasuryScreen /></WalletConnectionGate>} />
           <Route path="/join" element={<JoinArkaScreen />} />
           <Route path="/join/:code/preview" element={<WalletConnectionGate><ArkaPreviewGuestScreen /></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/share" element={<WalletConnectionGate><ShareArkaScreen /></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/guest" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="guest"><GuestArkaViewScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/pay" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="guest"><PrePaymentSummaryScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/payment-success" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="guest"><PaymentSuccessScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
-          <Route path="/arka/:arkaId/host/pay" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><PrePaymentSummaryScreen payerRole="host" /></ArkaRoleBoundary></WalletConnectionGate>} />
-          <Route path="/arka/:arkaId/host/payment-success" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><PaymentSuccessScreen payerRole="host" /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/host" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><HostCollectedFundsSummaryScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/host/summary" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><HostCollectedFundsSummaryScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/settle" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><SettlePaymentScreen /></ArkaRoleBoundary></WalletConnectionGate>} />

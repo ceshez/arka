@@ -10,6 +10,7 @@ import { buildArkaWithLocalGuest, findLocalGuest } from '../lib/arka/localGuestM
 import { selectArkaById } from '../lib/arka/selectArkaById'
 import {
   applyEqualSplit,
+  applyHostShareCovered,
   applyPercentageSplit,
   applySponsorSplit,
   hasMemberContributions,
@@ -17,7 +18,6 @@ import {
 import { createMockPayment } from '../lib/payments/createMockPayment'
 import { createMemberPaymentRequest, createSettlementPaymentRequest } from '../lib/payments/createPaymentRequest'
 import { createSettlementPayment } from '../lib/payments/createSettlementPayment'
-import { createCashbackPayment, findConfirmedCashback } from '../lib/payments/cashback'
 import { getLockedContributionAsset } from '../lib/payments/contributionAsset'
 import { paymentErrors } from '../lib/payments/paymentErrors'
 import { getOrCreateInviteGuestKey } from '../lib/invites/inviteIdentity'
@@ -27,6 +27,7 @@ import {
   confirmSharedMemberPayment,
   joinSharedInvite,
   loadSharedInvite,
+  markSharedHostShareCovered,
   prepareSharedFundSettlement,
   requestSharedFundRefund,
   respondToSponsorModeRequest,
@@ -106,7 +107,10 @@ function normalizeHostWalletFunding(arka: Arka): Arka {
 
 function upsertArka(arkas: Arka[], arka: Arka) {
   const normalizedArka = normalizeHostWalletFunding(arka)
-  return [normalizedArka, ...arkas.filter((item) => item.id !== normalizedArka.id)]
+  const existingIndex = arkas.findIndex((item) => item.id === normalizedArka.id)
+  if (existingIndex === -1) return [normalizedArka, ...arkas]
+
+  return arkas.map((item, index) => index === existingIndex ? normalizedArka : item)
 }
 
 function updateArkaStatus(arka: Arka): Arka {
@@ -169,7 +173,7 @@ export type ArkaStore = {
   respondToSponsorMode: (arkaId: string, accepted: boolean) => Promise<Arka>
   simulateGuestPayment: (arkaId: string, memberId: string, asset: AssetSymbol) => Promise<Payment>
   simulateHostSettlement: (arkaId: string, asset: AssetSymbol) => Promise<Payment>
-  payCashbackReward: (arkaId: string, memberId: string) => Promise<Payment>
+  coverHostShare: (arkaId: string) => Promise<Arka>
   setPaymentAsset: (arkaId: string, memberId: string, asset: AssetSymbol) => void
   updateArkaName: (arkaId: string, name: string) => void
   updateArkaTotal: (arkaId: string, totalFiat: number) => void
@@ -577,8 +581,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
   async respondToSponsorMode(arkaId, accepted) {
     const arka = get().getArka(arkaId)
     const request = arka?.sponsorModeRequest
-    const memberId = get().guestMemberIdsByArka[arkaId]
-    if (!arka || !request || !memberId) {
+    if (!arka || !request) {
       throw new Error('The treating request could not be loaded.')
     }
 
@@ -596,6 +599,12 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
         )),
       }))
       return updatedArka
+    }
+
+    const memberId = get().guestMemberIdsByArka[arkaId]
+      ?? (get().currentArkaId === arkaId ? get().currentGuestMemberId : null)
+    if (!memberId) {
+      throw new Error('The treating request could not be matched to this guest.')
     }
 
     const respondedAt = new Date().toISOString()
@@ -864,126 +873,40 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     return submittedPayment
   },
 
-  async payCashbackReward(arkaId, memberId) {
+  async coverHostShare(arkaId) {
     const arka = get().getArka(arkaId)
-    const member = arka?.members.find((candidate) => candidate.id === memberId)
-    if (!arka || !member) throw new Error('Arka member not found.')
+    if (!arka) throw new Error('Arka not found.')
 
-    const recordConfirmedReward = async (confirmedPayment: Payment) => {
-      const confirmedAt = confirmedPayment.confirmedAt ?? new Date().toISOString()
-      const confirmedAmount = confirmedPayment.amountNim ?? 0
+    const hostMember = arka.members.find((member) => (
+      member.role === 'host' || member.userId === arka.hostId
+    ))
+    if (!hostMember || hostMember.amountPaidNim >= hostMember.amountDueNim) return arka
 
-      set((state) => {
-        const updatedArkas = state.arkas.map((item) => (
-          item.id === arkaId
-            ? {
-                ...item,
-                members: item.members.map((itemMember) => (
-                  itemMember.id === memberId
-                    ? {
-                        ...itemMember,
-                        cashbackEarnedNim: confirmedAmount,
-                        cashbackPaidAt: confirmedAt,
-                      }
-                    : itemMember
-                )),
-                updatedAt: confirmedAt,
-              }
-            : item
-        ))
-
-        return {
-          arkas: updatedArkas,
-          recentArkas: updatedArkas.map(makeSummary),
-        }
+    let updatedArka: Arka
+    if (arka.invite.publicToken) {
+      const hostSecret = get().remoteHostSecrets[arkaId]
+      if (!hostSecret) throw new Error('Reconnect this Arka as its host before continuing.')
+      updatedArka = await markSharedHostShareCovered({
+        publicToken: arka.invite.publicToken,
+        hostSecret,
       })
-
-      if (arka.invite.publicToken && get().remoteHostSecrets[arkaId]) {
-        try {
-          await get().syncSharedArka(arkaId)
-        } catch {
-          // The confirmed reward remains visible locally. The next shared
-          // Arka sync can publish it without replaying the Nimiq payment.
-        }
-      }
-    }
-
-    const existing = findConfirmedCashback(get().payments, arkaId, memberId)
-    if (existing) {
-      if (!member.cashbackPaidAt || (member.cashbackEarnedNim ?? 0) <= 0) {
-        await recordConfirmedReward(existing)
-      }
-      return existing
-    }
-
-    const connectedWallet = useWalletStore.getState().wallet
-    const connectedAddress = connectedWallet?.address.replace(/\s+/g, '').toUpperCase()
-    const hostAddress = arka.hostWalletAddress?.replace(/\s+/g, '').toUpperCase()
-    if (!arka.metadata?.isDemo && (!connectedWallet || !hostAddress || connectedAddress !== hostAddress)) {
-      throw new Error('Reconnect the host wallet before sending cashback.')
-    }
-
-    const basePayment = createCashbackPayment(arka, member)
-    const awaitingPayment: Payment = {
-      ...basePayment,
-      status: 'awaiting-user-confirmation',
-      updatedAt: new Date().toISOString(),
-    }
-    set({ activePayment: awaitingPayment })
-
-    void trackAnalyticsEvent('payment_started', analyticsContextForPayment(arka, awaitingPayment, 'host'))
-
-    let result: PaymentResult
-    try {
-      const provider = await getNimiqPaymentProvider()
-      result = await provider.requestPayment({
-        arkaId: arka.id,
-        payerUserId: arka.hostId,
-        recipientWalletAddress: basePayment.recipientWalletAddress,
-        recipientLabel: basePayment.recipientLabel,
-        asset: 'NIM',
-        amountFiat: basePayment.amountFiat,
-        amountNim: basePayment.amountNim,
-        memo: `Arka ${arka.code} 3% cashback`,
-        isDemo: arka.metadata?.isDemo,
+    } else {
+      const now = new Date().toISOString()
+      updatedArka = updateArkaStatus({
+        ...arka,
+        members: applyHostShareCovered(arka.members, arka.hostId, now),
+        updatedAt: now,
       })
-    } catch {
-      const failedPayment: Payment = {
-        ...awaitingPayment,
-        status: 'failed',
-        updatedAt: new Date().toISOString(),
-        error: paymentErrors['unknown-error'],
+    }
+
+    set((state) => {
+      const updatedArkas = upsertArka(state.arkas, updatedArka)
+      return {
+        arkas: updatedArkas,
+        recentArkas: updatedArkas.map(makeSummary),
       }
-      set((state) => ({
-        activePayment: failedPayment,
-        payments: [failedPayment, ...state.payments],
-      }))
-      void trackAnalyticsEvent('payment_failed', analyticsContextForPayment(arka, failedPayment, 'host'))
-      return failedPayment
-    }
-
-    const payment: Payment = {
-      ...awaitingPayment,
-      status: result.status,
-      transactionHash: result.transactionHash,
-      confirmedAt: result.confirmedAt,
-      updatedAt: new Date().toISOString(),
-      error: result.errorCode ? paymentErrors[result.errorCode] : undefined,
-    }
-    set((state) => ({
-      activePayment: payment,
-      payments: [payment, ...state.payments],
-    }))
-
-    if (payment.status === 'confirmed') {
-      await recordConfirmedReward(payment)
-    }
-
-    void trackAnalyticsEvent(
-      payment.status === 'confirmed' ? 'payment_confirmed' : payment.status === 'cancelled' ? 'payment_cancelled' : 'payment_failed',
-      analyticsContextForPayment(arka, payment, 'host'),
-    )
-    return payment
+    })
+    return updatedArka
   },
 
   async simulateHostSettlement(arkaId, asset) {

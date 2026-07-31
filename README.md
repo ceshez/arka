@@ -35,6 +35,8 @@ The production configuration uses the Nimiq mainnet Hub and a mainnet RPC endpoi
 - Host and guest payment dashboards
 - Real NIM contribution and merchant-settlement requests
 - Network-confirmed success states
+- Sender-bound mainnet verification before a contribution is credited
+- Treasury-authorized 3% NIM cashback claims with mainnet payout confirmation
 - Mobile-first honeycomb payment progress
 - Local activity, completed Arka history, and shareable receipt cards
 - Vercel Web Analytics and Speed Insights
@@ -43,7 +45,7 @@ The production configuration uses the Nimiq mainnet Hub and a mainnet RPC endpoi
 
 - Confirmed payments are stored locally after network confirmation; cross-device payment synchronization is still pending.
 - USDT checkout is disabled until the EVM transfer and confirmation path is implemented end to end.
-- The proposed 3% NIM cashback is not active yet. It requires a funded reward wallet, payout rules, confirmation, retry handling, and abuse protection before Arka can truthfully credit rewards.
+- Cashback payouts require the configured treasury operator to review and confirm each reward in Nimiq Pay; Arka never stores or controls the treasury key.
 - QR, invitation, and two-phone payment flows still require the builder's manual device QA before submission.
 
 ## Architecture

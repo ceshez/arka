@@ -2,7 +2,6 @@ import { Check, CircleCheck, Clock3, LockKeyhole, PencilLine, UsersRound, X } fr
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { ArkaHeader } from '../components/arka/ArkaHeader'
-import { CashbackRewardsPanel } from '../components/arka/CashbackRewardsPanel'
 import { HoneycombProgress } from '../components/arka/HoneycombProgress'
 import { HostSplitMethodPanel } from '../components/arka/HostSplitMethodPanel'
 import { MemberStatusList } from '../components/arka/MemberStatusList'
@@ -43,8 +42,7 @@ export function HostCollectedFundsSummaryScreen() {
   const updateArkaSplitMethod = useArkaStore((state) => state.updateArkaSplitMethod)
   const updateArkaCustomSplit = useArkaStore((state) => state.updateArkaCustomSplit)
   const updateArkaSponsor = useArkaStore((state) => state.updateArkaSponsor)
-  const payments = useArkaStore((state) => state.payments)
-  const payCashbackReward = useArkaStore((state) => state.payCashbackReward)
+  const coverHostShare = useArkaStore((state) => state.coverHostShare)
   const refreshSharedArka = useArkaStore((state) => state.refreshSharedArka)
   const syncSharedArka = useArkaStore((state) => state.syncSharedArka)
   const contactNicknames = useProfileStore((state) => state.contactNicknames)
@@ -52,6 +50,7 @@ export function HostCollectedFundsSummaryScreen() {
   const [editingHeroField, setEditingHeroField] = useState<'name' | 'total' | null>(null)
   const [nameDraft, setNameDraft] = useState('')
   const [totalDraft, setTotalDraft] = useState('')
+  const [isCoveringHostShare, setIsCoveringHostShare] = useState(false)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const memberTrackerRef = useRef({
     arkaId: arka?.id,
@@ -139,11 +138,32 @@ export function HostCollectedFundsSummaryScreen() {
     ? selectedSponsor?.status === 'paid' ? 0 : 1
     : progress.pendingMemberCount + progress.partialMemberCount
   const hostMember = activeArka.members.find((member) => member.role === 'host' || member.userId === activeArka.hostId)
+  const hostIsTreating = selectedSponsor?.id === hostMember?.id
   const hostNeedsPayment = Boolean(
     hostMember && hostMember.amountDueFiat > hostMember.amountPaidFiat && hostMember.status !== 'paid',
   )
   const showHostPaymentAction = hostNeedsPayment
     && !(activeArka.splitMethod === 'sponsor' && !hasSelectedSponsor)
+
+  async function handleCoverHostShare() {
+    setIsCoveringHostShare(true)
+    try {
+      await coverHostShare(activeArka.id)
+      showToast({
+        tone: 'success',
+        title: 'Your share is covered',
+        message: 'Those funds are already in your host wallet. No self-payment was needed.',
+      })
+    } catch (error) {
+      showToast({
+        tone: 'info',
+        title: 'Could not cover your share',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      })
+    } finally {
+      setIsCoveringHostShare(false)
+    }
+  }
 
   function beginNameEdit() {
     setNameDraft(activeArka.name)
@@ -301,7 +321,7 @@ export function HostCollectedFundsSummaryScreen() {
 
             <section className="host-collection-panel" aria-label="Host collection summary">
               <div>
-                <p>Collected</p>
+                <p>{hostIsTreating ? 'Covered by host' : 'Collected'}</p>
                 <strong>{formatUsd(progress.collectedFiat)}</strong>
                 <span>~ {formatNim(progress.collectedNim)}</span>
               </div>
@@ -338,12 +358,6 @@ export function HostCollectedFundsSummaryScreen() {
             </p>
 
             <MemberStatusList members={activeArka.members} />
-            <CashbackRewardsPanel
-              arka={activeArka}
-              payments={payments}
-              onPay={(memberId) => payCashbackReward(activeArka.id, memberId)}
-              onNotice={showToast}
-            />
           </div>
         </div>
       </ScreenContainer>
@@ -360,16 +374,18 @@ export function HostCollectedFundsSummaryScreen() {
               {settlementReadiness.asset
                 ? activeArka.fundingMode === 'shared-wallet'
                   ? `Prepare final ${settlementReadiness.asset} payment`
-                  : `Pay merchant with collected ${settlementReadiness.asset}`
+                  : hostIsTreating
+                    ? `Pay merchant with ${settlementReadiness.asset}`
+                    : `Pay merchant with collected ${settlementReadiness.asset}`
                 : 'Review collected assets'}
             </ButtonLink>
           )}
         </BottomActionBar>
       ) : showHostPaymentAction ? (
         <BottomActionBar aboveBottomNav>
-          <ButtonLink to={`/arka/${activeArka.id}/host/pay`}>
-            <NimiqTransfer size={18} /> Continue to pay
-          </ButtonLink>
+          <Button type="button" disabled={isCoveringHostShare} onClick={() => void handleCoverHostShare()}>
+            <Check size={18} /> {isCoveringHostShare ? 'Covering your share…' : 'Mark my share as covered'}
+          </Button>
         </BottomActionBar>
       ) : null}
     </MobileScreen>

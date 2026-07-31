@@ -109,6 +109,14 @@ a {
   max-height: var(--arka-viewport-height, 100dvh);
 }
 
+.arka-mobile-viewport[data-nimiq-pay='true'] {
+  /*
+   * Nimiq Pay already places the Mini App below its native URL/header chrome.
+   * Reapplying the device top inset here creates a duplicated empty band.
+   */
+  --arka-safe-top: 0px;
+}
+
 .arka-mobile-viewport[data-editing='true'] .arka-bottom-action {
   display: none;
 }
@@ -2245,7 +2253,7 @@ svg[aria-hidden="true"].branded-qr-code path:last-of-type {
   overflow-x: clip;
   flex-direction: column;
   padding:
-    max(1rem, env(safe-area-inset-top))
+    max(1rem, var(--arka-safe-top))
     clamp(1.5rem, 6.4vw, 1.72rem)
     max(1.25rem, env(safe-area-inset-bottom));
 }

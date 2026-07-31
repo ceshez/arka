@@ -1,5 +1,10 @@
 import type { PaymentRequest, PaymentResult } from './types'
-import { fetchNimBalance, nimToLuna, waitForNimiqConfirmation } from './nimiqRpc'
+import {
+  fetchNimBalance,
+  getNimiqPaymentMismatch,
+  nimToLuna,
+  waitForNimiqTransaction,
+} from './nimiqRpc'
 
 const HUB_URL = import.meta.env.VITE_NIMIQ_HUB_URL?.trim() || 'https://hub.nimiq.com'
 
@@ -45,15 +50,27 @@ export async function requestHubPayment(request: PaymentRequest): Promise<Paymen
     const hub = new HubApi(HUB_URL)
     const result = await hub.checkout({
       appName: 'Arka',
+      sender: request.senderWalletAddress,
+      forceSender: Boolean(request.senderWalletAddress),
       recipient: request.recipientWalletAddress,
       value: nimToLuna(request.amountNim),
       extraData: request.memo,
     })
-    const confirmed = await waitForNimiqConfirmation(result.hash)
+    const confirmed = await waitForNimiqTransaction(result.hash)
+    if (!confirmed) return { status: 'failed', transactionHash: result.hash, errorCode: 'network-error' }
 
-    return confirmed
-      ? { status: 'confirmed', transactionHash: result.hash, confirmedAt: new Date().toISOString() }
-      : { status: 'failed', transactionHash: result.hash, errorCode: 'network-error' }
+    const mismatch = getNimiqPaymentMismatch(confirmed, request)
+    if (mismatch) {
+      return {
+        status: 'failed',
+        transactionHash: result.hash,
+        // The payment already reached mainnet. Never suggest retrying, even when
+        // the mismatch is the sender, because that could create a duplicate payment.
+        errorCode: 'transaction-mismatch',
+      }
+    }
+
+    return { status: 'confirmed', transactionHash: result.hash, confirmedAt: new Date().toISOString() }
   } catch (error) {
     const errorCode = paymentErrorCode(error)
     return {

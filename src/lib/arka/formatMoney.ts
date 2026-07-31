@@ -1,8 +1,10 @@
 export function formatUsd(value: number) {
+  const usesMicroAmount = Math.abs(value) > 0 && Math.abs(value) < 0.01
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: usesMicroAmount ? 5 : 2,
   }).format(value)
 }
 

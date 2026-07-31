@@ -165,6 +165,17 @@ export async function updateSharedInvite(arka: Arka, hostSecret: string) {
   return result.arka
 }
 
+export async function markSharedHostShareCovered(input: {
+  publicToken: string
+  hostSecret: string
+}) {
+  const result = await callInviteRpc<InviteResponse>('mark_arka_host_share_covered', {
+    p_public_token: input.publicToken,
+    p_host_secret: input.hostSecret,
+  })
+  return result.arka
+}
+
 export async function respondToSponsorModeRequest(input: {
   reference: string
   guestKey: string

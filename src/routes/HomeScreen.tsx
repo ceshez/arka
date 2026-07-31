@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
-import { ArrowRight, CircleHelp, ChevronRight, Gift, Hexagon, LoaderCircle, Plus, QrCode, UsersRound, WalletCards } from 'lucide-react'
+import { ArrowRight, CircleHelp, ChevronRight, Gift, Hexagon, LoaderCircle, Plus, QrCode, ShieldCheck, UsersRound, WalletCards } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { MemberIdenticon } from '../components/arka/MemberIdenticon'
 import { HomeArkasHeader } from '../components/arka/HomeArkasHeader'
@@ -63,6 +63,9 @@ export function HomeScreen() {
     : '/'
   const activeProgress = activeArka ? calculateArkaProgress(activeArka) : undefined
   const progress = activeProgress ? Math.round(activeProgress.progressPercent) : 0
+  const treasuryAddress = import.meta.env.VITE_CASHBACK_TREASURY_ADDRESS?.trim()
+  const isTreasuryWallet = Boolean(walletAddress && treasuryAddress)
+    && walletAddress?.replace(/\s+/g, '').toUpperCase() === treasuryAddress?.replace(/\s+/g, '').toUpperCase()
   return (
     <MobileScreen className="bg-[#faf9f4]">
       <motion.div
@@ -149,6 +152,16 @@ export function HomeScreen() {
             <span><strong className="block text-sm font-black">Join Arka</strong><span className="text-[11px] font-semibold text-arka-muted">Code or QR</span></span>
           </Link>
         </section>
+        {isTreasuryWallet ? (
+          <Link
+            to="/cashback/treasury"
+            className="mt-3 flex min-h-14 items-center gap-3 rounded-2xl border border-[#e7c95e] bg-[#fff8e7] px-4 text-sm font-black text-[#6d4b00]"
+          >
+            <ShieldCheck size={19} />
+            Review cashback treasury
+            <ChevronRight className="ml-auto" size={18} />
+          </Link>
+        ) : null}
           </div>
 
           <div className="arka-home-dashboard-secondary">

@@ -7,7 +7,7 @@ import { Card } from '../components/ui/Card'
 import { MobileScreen } from '../components/ui/MobileScreen'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
 import { formatDate, formatNim, formatUsd } from '../lib/arka/formatMoney'
-import { getArkaActivity } from '../lib/arka/getArkaActivity'
+import { getActivityByArka } from '../lib/arka/getActivityByArka'
 import { useArkaStore } from '../store/arkaStore'
 import { useActivityStore } from '../store/activityStore'
 
@@ -15,11 +15,15 @@ export function ActivityScreen() {
   const arkas = useArkaStore((state) => state.arkas)
   const lastSeenAt = useActivityStore((state) => state.lastSeenAt)
   const markAllSeen = useActivityStore((state) => state.markAllSeen)
+  const [unreadCutoff] = useState(lastSeenAt)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const totalCollected = arkas.reduce((total, arka) => total + arka.members.reduce((memberTotal, member) => memberTotal + member.amountPaidFiat, 0), 0)
   const totalTrackedNim = arkas.reduce((total, arka) => total + arka.totalNimEstimate, 0)
-  const activityByArka = useMemo(() => arkas.map((arka) => ({ arka, events: getArkaActivity(arka) })), [arkas])
-  const unreadCount = activityByArka.flatMap(({ events }) => events).filter((event) => !lastSeenAt || Date.parse(event.occurredAt) > Date.parse(lastSeenAt)).length
+  const activityByArka = useMemo(() => getActivityByArka(arkas), [arkas])
+  const unreadCount = activityByArka
+    .flatMap(({ events }) => events)
+    .filter((event) => !unreadCutoff || Date.parse(event.occurredAt) > Date.parse(unreadCutoff))
+    .length
 
   useEffect(() => {
     markAllSeen()
@@ -39,7 +43,7 @@ export function ActivityScreen() {
           {activityByArka.map(({ arka, events }) => {
             const CategoryIcon = arkaCategoryIcons[arka.metadata?.category ?? 'custom']
             const isCollapsed = Boolean(collapsed[arka.id])
-            const arkaUnread = events.filter((event) => !lastSeenAt || Date.parse(event.occurredAt) > Date.parse(lastSeenAt)).length
+            const arkaUnread = events.filter((event) => !unreadCutoff || Date.parse(event.occurredAt) > Date.parse(unreadCutoff)).length
 
             return (
               <Card key={arka.id} className="overflow-hidden p-0">
@@ -50,17 +54,17 @@ export function ActivityScreen() {
                 </button>
 
                 {!isCollapsed ? <div className="border-t border-[#eee8df] px-4 py-1">
-                  <div className="max-h-[292px] overflow-y-auto overscroll-contain pr-1" aria-label={`Full activity history for ${arka.name}`}>
+                  <div className="max-h-[292px] touch-pan-y overflow-y-auto overscroll-y-auto pr-1" aria-label={`Full activity history for ${arka.name}`}>
                     {events.map((event) => {
                       const member = event.memberId ? arka.members.find((candidate) => candidate.id === event.memberId) : undefined
                       const EventIcon = event.kind === 'completed' ? CheckCircle2 : event.kind === 'sponsor' ? Crown : event.kind === 'sponsor-request' ? BellRing : event.kind === 'sponsor-response' ? MessageCircle : event.kind === 'joined' ? UserPlus : event.kind === 'paid' ? Banknote : event.kind === 'partial' ? CreditCard : event.kind === 'ready' ? Sparkles : event.kind === 'shared' ? Send : event.kind === 'created' ? CirclePlus : Clock3
                       const isSpecialEvent = event.kind === 'shared' || event.kind === 'sponsor' || event.kind === 'sponsor-request'
                       const overlayTone = event.kind === 'paid' || event.kind === 'completed' ? 'bg-[#287b39] text-white' : event.kind === 'partial' ? 'bg-[#7d5700] text-white' : isSpecialEvent ? 'bg-[#f7c842] text-[#3d2a00]' : 'bg-[#f7c842] text-[#3d2a00]'
-                      const isUnread = !lastSeenAt || Date.parse(event.occurredAt) > Date.parse(lastSeenAt)
+                      const isUnread = !unreadCutoff || Date.parse(event.occurredAt) > Date.parse(unreadCutoff)
                       return <div key={event.id} className={`flex min-h-[71px] gap-3 py-3 ${isSpecialEvent ? '-mx-2 rounded-xl bg-[#fff7dd] px-2' : ''}`}><span className="mt-0.5 size-10 shrink-0">{member ? <span className="relative block size-10"><MemberIdenticon seed={member.walletAddress ?? member.userId} className="size-10 border-2 border-white shadow-none" /><span className={`absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white ${overlayTone}`}><EventIcon size={10} strokeWidth={2.8} /></span></span> : <span className="relative grid size-10 place-items-center rounded-xl bg-[#fff4d7] text-[#7d5700]"><CategoryIcon size={19} /><span className={`absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white ${overlayTone}`}><EventIcon size={10} strokeWidth={2.8} /></span></span>}</span><div className="min-w-0 flex-1"><p className="text-sm font-bold">{event.title}</p><p className="mt-0.5 text-xs font-semibold leading-5 text-arka-muted">{event.detail}</p></div>{isUnread ? <span className="mt-1 size-2 shrink-0 rounded-full bg-[#c7362f]" aria-label="New" /> : <time className="shrink-0 pt-0.5 text-[10px] font-bold text-arka-muted">{formatDate(event.occurredAt)}</time>}</div>
                     })}
                   </div>
-                  {events.length > 4 ? <p className="border-t border-[#f0ebe3] py-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-arka-muted">Scroll for full history</p> : null}
+                  {events.length > 4 ? <p className="border-t border-[#f0ebe3] py-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-arka-muted">Scroll for full history · page continues at the end</p> : null}
                 </div> : null}
               </Card>
             )

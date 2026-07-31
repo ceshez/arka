@@ -22,6 +22,7 @@ export function createMemberPaymentRequest(
   return {
     arkaId: arka.id,
     payerUserId: member.userId,
+    senderWalletAddress: member.walletAddress,
     recipientWalletAddress,
     recipientLabel: usesSharedFund ? `Shared fund · ${arka.name}` : 'Host wallet',
     asset,
@@ -40,6 +41,7 @@ export function createSettlementPaymentRequest(arka: Arka, asset: AssetSymbol): 
   return {
     arkaId: arka.id,
     payerUserId: arka.hostId,
+    senderWalletAddress: arka.hostWalletAddress,
     recipientWalletAddress: arka.merchantWalletAddress,
     recipientLabel: arka.metadata?.locationName ?? 'Merchant wallet',
     asset,

@@ -98,3 +98,13 @@ test('makes a paid NIM guest eligible for a 3% reward', () => {
   assert.equal(isCashbackEligible(guest), true)
   assert.deepEqual(calculateCashbackReward(guest), { amountFiat: 0.3, amountNim: 3 })
 })
+
+test('caps an individual Arka reward to 3% of the first ten dollars', () => {
+  const guest = {
+    ...makeArka().members[0],
+    amountPaidFiat: 25,
+    amountPaidNim: 5_000,
+  }
+
+  assert.deepEqual(calculateCashbackReward(guest), { amountFiat: 0.3, amountNim: 60 })
+})

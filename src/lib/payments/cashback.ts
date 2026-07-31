@@ -3,17 +3,24 @@ import type { Payment } from '../../types/payment'
 import { formatPublicIdentity } from '../arka/formatWalletAddress'
 
 export const NIM_CASHBACK_RATE = 0.03
+export const CASHBACK_MAX_ELIGIBLE_FIAT_PER_ARKA = 10
+export const CASHBACK_MAX_REWARD_FIAT_PER_ARKA = 0.3
+export const CASHBACK_DAILY_TREASURY_CAP_FIAT = 10
 
 export function calculateCashbackReward(member: ArkaMember) {
-  const amountFiat = Number((member.amountPaidFiat * NIM_CASHBACK_RATE).toFixed(2))
-  const amountNim = Number((member.amountPaidNim * NIM_CASHBACK_RATE).toFixed(5))
+  const eligibleFiat = Math.min(member.amountPaidFiat, CASHBACK_MAX_ELIGIBLE_FIAT_PER_ARKA)
+  const eligibleRatio = member.amountPaidFiat > 0 ? eligibleFiat / member.amountPaidFiat : 0
+  const amountFiat = Number((eligibleFiat * NIM_CASHBACK_RATE).toFixed(5))
+  const amountNim = Number((member.amountPaidNim * eligibleRatio * NIM_CASHBACK_RATE).toFixed(5))
   return { amountFiat, amountNim }
 }
 
 export function calculateCashbackPreview(amountFiat: number, amountNim: number) {
+  const eligibleFiat = Math.min(amountFiat, CASHBACK_MAX_ELIGIBLE_FIAT_PER_ARKA)
+  const eligibleRatio = amountFiat > 0 ? eligibleFiat / amountFiat : 0
   return {
-    amountFiat: Number((amountFiat * NIM_CASHBACK_RATE).toFixed(2)),
-    amountNim: Number((amountNim * NIM_CASHBACK_RATE).toFixed(5)),
+    amountFiat: Number((eligibleFiat * NIM_CASHBACK_RATE).toFixed(5)),
+    amountNim: Number((amountNim * eligibleRatio * NIM_CASHBACK_RATE).toFixed(5)),
   }
 }
 

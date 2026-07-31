@@ -6,6 +6,7 @@ export type PaymentAsset = AssetSymbol
 export type PaymentRequest = {
   arkaId: string
   payerUserId: string
+  senderWalletAddress?: string
   recipientWalletAddress: string
   recipientLabel: string
   asset: PaymentAsset

@@ -39,7 +39,7 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
   const remainingPayment = getRemainingPaymentAmounts(payer)
   const sponsorSelected = activeArka.splitMethod !== 'sponsor'
     || activeArka.members.some((member) => member.amountDueFiat >= activeArka.totalFiat - 0.01)
-  if (!sponsorSelected || remainingPayment.amountFiat <= 0.001) {
+  if (!sponsorSelected || remainingPayment.amountNim < 0.00001) {
     return <Navigate to={payerRole === 'host' ? `/arka/${activeArka.id}/host/summary` : `/arka/${activeArka.id}/guest`} replace />
   }
   const returnTo = payerRole === 'host' ? `/arka/${activeArka.id}/host/summary` : `/arka/${activeArka.id}/guest`

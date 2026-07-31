@@ -31,6 +31,18 @@ export const paymentErrors: Record<PaymentErrorCode, PaymentError> = {
     message: 'The payment could not be reached. Please try again.',
     recoverable: true,
   },
+  'wallet-mismatch': {
+    code: 'wallet-mismatch',
+    title: 'Reconnect the payment wallet',
+    message: 'Nimiq Pay is using a different wallet. Reconnect the wallet assigned to this Arka before continuing.',
+    recoverable: true,
+  },
+  'transaction-mismatch': {
+    code: 'transaction-mismatch',
+    title: 'Payment needs review',
+    message: 'A mainnet transfer was found, but it did not match this Arka. Do not send the payment again.',
+    recoverable: false,
+  },
   'arka-expired': {
     code: 'arka-expired',
     title: 'This Arka expired',

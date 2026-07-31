@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils/cn'
+import { isNimiqPayEnvironment } from '../../lib/nimiq/detectNimiqEnvironment'
 import { BottomNav } from '../layout/BottomNav'
 import { MobileScreenOverlayContext } from './MobileScreenOverlayContext'
 
@@ -28,6 +29,7 @@ export function MobileScreen({
   appearance?: 'default' | 'home'
 }) {
   const usesHomeAppearance = appearance === 'home'
+  const isEmbeddedInNimiqPay = isNimiqPayEnvironment()
   const { pathname } = useLocation()
   const viewportRef = useRef<HTMLElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -80,6 +82,7 @@ export function MobileScreen({
       <main
         ref={viewportRef}
         data-editing={isEditingText ? 'true' : undefined}
+        data-nimiq-pay={isEmbeddedInNimiqPay ? 'true' : undefined}
         onFocusCapture={handleFocusCapture}
         onBlurCapture={handleBlurCapture}
         className={cn(

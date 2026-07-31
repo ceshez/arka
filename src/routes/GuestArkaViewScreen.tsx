@@ -14,6 +14,7 @@ import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
 import { useSharedArkaRefresh } from '../hooks/useSharedArkaRefresh'
+import { getRemainingPaymentAmounts } from '../lib/payments/getRemainingPaymentAmounts'
 import { useArkaStore } from '../store/arkaStore'
 import { getGuestMember, getHostName } from './routeUtils'
 
@@ -62,7 +63,7 @@ export function GuestArkaViewScreen() {
     ? arka.members.find((member) => member.amountDueFiat >= arka.totalFiat - 0.01)
     : undefined
   const sponsorSelectionPending = arka.splitMethod === 'sponsor' && !selectedSponsor
-  const guestHasAmountDue = guest.amountDueFiat - guest.amountPaidFiat > 0.001
+  const guestHasAmountDue = getRemainingPaymentAmounts(guest).amountNim >= 0.00001
 
   return (
     <MobileScreen className="host-dashboard-screen" withBottomAction>

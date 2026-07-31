@@ -66,6 +66,7 @@ export function PaymentFailedErrorScreen() {
   const returnTo = context.returnTo ?? '/'
   const retryTo = context.retryTo ?? returnTo
   const error = paymentErrors[context.errorCode ?? 'payment-failed']
+  const needsReview = context.errorCode === 'transaction-mismatch'
 
   return (
     <MobileScreen>
@@ -80,15 +81,23 @@ export function PaymentFailedErrorScreen() {
                 <CircleX size={18} />
               </span>
               <div>
-                <p className="font-extrabold text-arka-text">No payment was confirmed</p>
+                <p className="font-extrabold text-arka-text">
+                  {needsReview ? 'Do not repeat this payment' : 'No payment was confirmed'}
+                </p>
                 <p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">
-                  {context.arkaName ? `${context.arkaName} was not updated.` : 'Your Arka was not updated.'}
+                  {needsReview
+                    ? 'Return to the Arka and reconnect the wallet assigned to this contribution.'
+                    : context.arkaName ? `${context.arkaName} was not updated.` : 'Your Arka was not updated.'}
                 </p>
               </div>
             </div>
           )}
-          primary={<ButtonLink to={retryTo}>Try payment again</ButtonLink>}
-          secondary={<ButtonLink variant="ghost" to={returnTo}>Back to Arka</ButtonLink>}
+          primary={needsReview
+            ? <ButtonLink to={returnTo}>Back to Arka</ButtonLink>
+            : <ButtonLink to={retryTo}>Try payment again</ButtonLink>}
+          secondary={needsReview
+            ? <ButtonLink variant="ghost" to="/">Back home</ButtonLink>
+            : <ButtonLink variant="ghost" to={returnTo}>Back to Arka</ButtonLink>}
         />
       </ScreenContainer>
     </MobileScreen>

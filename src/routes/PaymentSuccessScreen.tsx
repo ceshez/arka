@@ -12,6 +12,7 @@ import { MobileScreen } from '../components/ui/MobileScreen'
 import { NimiqArrowRight } from '../components/ui/NimiqIcon'
 import { formatNim } from '../lib/arka/formatMoney'
 import { buildPaymentReceiptShareText } from '../lib/arka/paymentReceipt'
+import { claimCashback } from '../lib/cashback/cashbackApi'
 import { calculateCashbackReward } from '../lib/payments/cashback'
 import { paymentAssetSelectionKey, useArkaStore } from '../store/arkaStore'
 import { getGuestMember, getHostMember } from './routeUtils'
@@ -20,6 +21,8 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
   const { arkaId } = useParams()
   const [shareFeedback, setShareFeedback] = useState('Share payment')
   const [isShareCardOpen, setIsShareCardOpen] = useState(false)
+  const [cashbackStatus, setCashbackStatus] = useState<'idle' | 'claiming' | 'pending' | 'error'>('idle')
+  const [cashbackMessage, setCashbackMessage] = useState('')
   const arka = useArkaStore((state) => state.getArka(arkaId))
   const currentGuestMemberId = useArkaStore((state) => (
     arkaId ? state.guestMemberIdsByArka[arkaId] : state.currentGuestMemberId
@@ -91,6 +94,23 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
     }
   }
 
+  async function requestCashback() {
+    if (!confirmedPayment?.transactionHash) return
+    setCashbackStatus('claiming')
+    setCashbackMessage('')
+    try {
+      const result = await claimCashback({
+        reference: activeArka.invite.publicToken ?? activeArka.code,
+        transactionHash: confirmedPayment.transactionHash,
+      })
+      setCashbackStatus('pending')
+      setCashbackMessage(result.message)
+    } catch (error) {
+      setCashbackStatus('error')
+      setCashbackMessage(error instanceof Error ? error.message : 'Cashback could not be requested.')
+    }
+  }
+
   const shareFinished = shareFeedback === 'Payment shared' || shareFeedback === 'Copied to clipboard'
 
   return (
@@ -114,7 +134,36 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
                 <div>
                   <h2 className="text-sm font-black">3% NIM cashback eligible</h2>
                   <p className="mt-1 text-lg font-black text-[#6d4b00]">{formatNim(cashbackReward.amountNim)}</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-arka-muted">The host sends this as a separate NIM payment. It appears in NIM Earn only after confirmation in Nimiq Pay.</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-arka-muted">
+                    Paid from the Arka cashback treasury after human and mainnet verification. Limited to one reward per day.
+                  </p>
+                  {confirmedPayer.cashbackPaidAt && (confirmedPayer.cashbackEarnedNim ?? 0) > 0 ? (
+                    <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#356b37]">
+                      Cashback received: {formatNim(confirmedPayer.cashbackEarnedNim ?? 0)}
+                    </p>
+                  ) : confirmedPayment?.transactionHash ? (
+                    <Button
+                      className="mt-3"
+                      type="button"
+                      disabled={cashbackStatus === 'claiming' || cashbackStatus === 'pending'}
+                      onClick={() => void requestCashback()}
+                    >
+                      <Gift size={17} />
+                      {cashbackStatus === 'claiming'
+                        ? 'Verifying…'
+                        : cashbackStatus === 'pending'
+                          ? 'Cashback requested'
+                          : 'Claim cashback'}
+                    </Button>
+                  ) : null}
+                  {cashbackMessage ? (
+                    <p
+                      className={`mt-2 text-xs font-bold leading-5 ${cashbackStatus === 'error' ? 'text-[#a13f32]' : 'text-[#356b37]'}`}
+                      role="status"
+                    >
+                      {cashbackMessage}
+                    </p>
+                  ) : null}
                 </div>
               </Card>
             ) : null}

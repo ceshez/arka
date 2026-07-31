@@ -21,6 +21,8 @@ export type PaymentErrorCode =
   | 'user-cancelled'
   | 'provider-unavailable'
   | 'network-error'
+  | 'wallet-mismatch'
+  | 'transaction-mismatch'
   | 'arka-expired'
   | 'unknown-error'
 

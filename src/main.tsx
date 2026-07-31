@@ -2,8 +2,17 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
+import { initBotId } from 'botid/client/core'
 import './index.css'
 import { App } from './App.tsx'
+
+initBotId({
+  protect: [{
+    path: '/api/cashback',
+    method: 'POST',
+    advancedOptions: { checkLevel: 'basic' },
+  }],
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
