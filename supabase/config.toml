@@ -1,17 +1,6 @@
-[functions.activate-shared-member]
-verify_jwt = false
-
-[functions.verify-shared-wallet]
-verify_jwt = false
-
-[functions.verify-contribution]
-verify_jwt = false
-
-[functions.prepare-settlement]
-verify_jwt = false
-
-[functions.verify-settlement]
-verify_jwt = false
-
-[functions.request-refund]
-verify_jwt = false
+# The active product uses host-wallet collection and the Vercel cashback API.
+# The shared-wallet functions under supabase/functions are retained only as
+# historical source and intentionally are not declared here. Supabase's Git
+# integration deploys declared functions on pushes; declaring these legacy
+# functions would bundle @nimiq/core server-side (~31 MB) and exceed the Edge
+# Function upload limit. Existing deployed versions are not deleted by this.
