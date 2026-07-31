@@ -48,14 +48,16 @@ export function redistributeManualPercentages(
   })
 }
 
-export function calculatePercentageAmounts(total: number, percentages: number[]): number[] {
+export function calculatePercentageAmounts(total: number, percentages: number[], fractionDigits = 2): number[] {
+  const factor = 10 ** fractionDigits
+  const roundAmount = (value: number) => Math.round(value * factor) / factor
   let allocated = 0
 
   return percentages.map((percentage, index) => {
-    if (index === percentages.length - 1) return roundToTwo(total - allocated)
+    if (index === percentages.length - 1) return roundAmount(total - allocated)
 
-    const amount = roundToTwo((total * percentage) / 100)
-    allocated = roundToTwo(allocated + amount)
+    const amount = roundAmount((total * percentage) / 100)
+    allocated = roundAmount(allocated + amount)
     return amount
   })
 }

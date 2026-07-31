@@ -1,6 +1,7 @@
 import { CalendarDays, DollarSign, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { formatNim, formatUsd, formatUsdt } from '../../lib/arka/formatMoney'
+import { formatPublicIdentity } from '../../lib/arka/formatWalletAddress'
 import { getRemainingPaymentAmounts } from '../../lib/payments/getRemainingPaymentAmounts'
 import type { Arka, ArkaMember, AssetSymbol } from '../../types/arka'
 import { Card } from '../ui/Card'
@@ -46,7 +47,9 @@ export function PaymentSummaryCard({
   asset: AssetSymbol
 }) {
   const host = arka.members.find((candidate) => candidate.role === 'host' || candidate.userId === arka.hostId)
-  const recipient = host?.displayName ? `@${host.displayName.toLowerCase().replace(/\s+/g, '')}` : 'Host wallet'
+  const recipient = host
+    ? formatPublicIdentity(host.displayName, host.walletAddress ?? arka.hostWalletAddress)
+    : 'Host wallet'
   const remaining = getRemainingPaymentAmounts(member)
   const assetAmount = asset === 'NIM'
     ? formatNim(remaining.amountNim)

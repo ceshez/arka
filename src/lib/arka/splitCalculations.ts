@@ -53,7 +53,7 @@ export function applyEqualSplit(members: ArkaMember[], totalFiat: number, totalN
 
   const percentages = createEqualPercentages(members.length)
   const fiatAmounts = calculatePercentageAmounts(totalFiat, percentages)
-  const nimAmounts = calculatePercentageAmounts(totalNim, percentages)
+  const nimAmounts = calculatePercentageAmounts(totalNim, percentages, 5)
 
   return members.map((member, index) => applyMemberDue(member, fiatAmounts[index], nimAmounts[index]))
 }
@@ -72,7 +72,7 @@ export function applyPercentageSplit(
   if (!isValid) return members
 
   const fiatAmounts = calculatePercentageAmounts(totalFiat, percentages)
-  const nimAmounts = calculatePercentageAmounts(totalNim, percentages)
+  const nimAmounts = calculatePercentageAmounts(totalNim, percentages, 5)
 
   return members.map((member, index) => applyMemberDue(member, fiatAmounts[index], nimAmounts[index]))
 }

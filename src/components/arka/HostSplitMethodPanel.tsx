@@ -1,8 +1,9 @@
-import { Check, Gift, LockKeyhole, PencilLine, Percent, PieChart, RefreshCcw, UsersRound, type LucideIcon } from 'lucide-react'
+import { Check, Clock3, Gift, LockKeyhole, PencilLine, Percent, PieChart, RefreshCcw, UsersRound, XCircle, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { calculatePercentageAmounts, createEqualPercentages, redistributeManualPercentages } from '../../lib/arka/percentageSplits'
 import { formatNim, formatUsd } from '../../lib/arka/formatMoney'
+import { formatPublicIdentity } from '../../lib/arka/formatWalletAddress'
 import { hasMemberContributions } from '../../lib/arka/splitCalculations'
 import { playSuccessChime } from '../../lib/ui/sounds'
 import { cn } from '../../lib/utils/cn'
@@ -57,10 +58,22 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
   const splitIsLocked = hasMemberContributions(arka.members)
   const effectivePercentages = percentages.length === arka.members.length ? percentages : createEqualPercentages(arka.members.length)
   const fiatAmounts = calculatePercentageAmounts(arka.totalFiat, effectivePercentages)
-  const nimAmounts = calculatePercentageAmounts(arka.totalNimEstimate, effectivePercentages)
+  const nimAmounts = calculatePercentageAmounts(arka.totalNimEstimate, effectivePercentages, 5)
   const selectedMember = arka.members.find((member) => member.id === selectedMemberId)
   const candidateMember = arka.members.find((member) => member.id === candidateMemberId)
   const wheelBackground = buildWheelBackground(arka.members.length)
+  const sponsorResponses = arka.sponsorModeRequest?.responses
+  const acceptedCount = arka.members.filter(
+    (member) => sponsorResponses?.[member.id]?.status === 'accepted',
+  ).length
+  const declinedCount = arka.members.filter(
+    (member) => sponsorResponses?.[member.id]?.status === 'declined',
+  ).length
+  const allMembersAccepted = Boolean(selectedMember) || (
+    Boolean(arka.sponsorModeRequest)
+    && arka.members.length > 0
+    && acceptedCount === arka.members.length
+  )
 
   useEffect(() => {
     const overlayOpen = sponsorStage === 'spinning' || sponsorStage === 'winner'
@@ -108,7 +121,7 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
       setSelectedMemberId(undefined)
       setSponsorStage('ready')
       onSponsorSelected(undefined)
-      onNotify({ tone: 'info', title: 'Everyone is included', message: 'Spin once to choose who will treat this Arka.' })
+      onNotify({ tone: 'info', title: 'Approval request sent', message: 'The host is included. Guests must accept before the wheel can spin.' })
     }
   }
 
@@ -137,7 +150,7 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
   }
 
   function handleSpinWheel() {
-    if (splitIsLocked || sponsorStage !== 'ready' || arka.members.length === 0) return
+    if (splitIsLocked || !allMembersAccepted || sponsorStage !== 'ready' || arka.members.length === 0) return
     const winnerIndex = Math.floor(Math.random() * arka.members.length)
     const winner = arka.members[winnerIndex]
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -152,7 +165,7 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
       onSponsorSelected(winner.id)
       setSponsorStage('winner')
       playSuccessChime()
-      onNotify({ tone: 'success', title: `${winner.displayName} will treat`, message: 'Their share now covers the full Arka total.' })
+      onNotify({ tone: 'success', title: `${formatPublicIdentity(winner.displayName, winner.walletAddress)} will treat`, message: 'Their share now covers the full Arka total.' })
     }, spinDuration)
     closeTimerRef.current = window.setTimeout(
       () => setSponsorStage('ready'),
@@ -167,7 +180,7 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
       const radians = (angle * Math.PI) / 180
       const left = 50 + Math.sin(radians) * labelRadius
       const top = 50 - Math.cos(radians) * labelRadius
-      return <span key={member.id} className="host-wheel-label" style={{ left: `${left}%`, top: `${top}%` }}><span className="host-wheel-label-content" style={counterRotate ? { transform: `rotate(${-wheelRotation}deg)`, transitionDuration: sponsorStage === 'spinning' ? `${wheelSpinDuration}ms` : '1ms' } : undefined}>{member.displayName}</span></span>
+      return <span key={member.id} className="host-wheel-label" style={{ left: `${left}%`, top: `${top}%` }}><span className="host-wheel-label-content" style={counterRotate ? { transform: `rotate(${-wheelRotation}deg)`, transitionDuration: sponsorStage === 'spinning' ? `${wheelSpinDuration}ms` : '1ms' } : undefined}>{formatPublicIdentity(member.displayName, member.walletAddress)}</span></span>
     })
   }
 
@@ -177,7 +190,7 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
   const wheelOverlay = sponsorStage === 'spinning' || sponsorStage === 'winner' ? createPortal(
     <div className="host-wheel-overlay" role="dialog" aria-modal="true" aria-label="Payer selection wheel">
       <div className={cn('host-wheel-overlay-content', sponsorStage === 'winner' && 'is-revealed')}>
-        <p>{sponsorStage === 'spinning' ? 'Choosing who treats this Arka…' : `${candidateMember?.displayName ?? 'Payer'} selected`}</p>
+        <p>{sponsorStage === 'spinning' ? 'Choosing who treats this Arka…' : `${candidateMember ? formatPublicIdentity(candidateMember.displayName, candidateMember.walletAddress) : 'Payer'} selected`}</p>
         <div className="host-wheel-overlay-disc">
           <span className="host-wheel-overlay-pointer" aria-hidden="true">▼</span>
           <div className="host-treating-wheel host-treating-wheel--overlay" style={{ background: wheelBackground, transform: `rotate(${wheelRotation}deg)`, transitionDuration: sponsorStage === 'spinning' ? `${wheelSpinDuration}ms` : '1ms' }}>
@@ -185,7 +198,7 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
             <span className="host-wheel-center host-wheel-center--overlay"><Gift size={24} /></span>
           </div>
         </div>
-        {sponsorStage === 'winner' && candidateMember ? <div className="host-wheel-winner" role="status" aria-live="assertive"><MemberIdenticon seed={candidateMember.walletAddress ?? candidateMember.userId} className="size-20" /><p>{candidateMember.displayName}</p><strong>will treat this Arka</strong><span>{candidateMember.displayName} will cover {formatUsd(arka.totalFiat)} and confirm the payment in Nimiq Pay.</span></div> : null}
+        {sponsorStage === 'winner' && candidateMember ? <div className="host-wheel-winner" role="status" aria-live="assertive"><MemberIdenticon seed={candidateMember.walletAddress ?? candidateMember.userId} className="size-20" /><p>{formatPublicIdentity(candidateMember.displayName, candidateMember.walletAddress)}</p><strong>will treat this Arka</strong><span>{formatPublicIdentity(candidateMember.displayName, candidateMember.walletAddress)} will cover {formatUsd(arka.totalFiat)} and confirm the payment in Nimiq Pay.</span></div> : null}
       </div>
     </div>,
     document.body,
@@ -203,12 +216,22 @@ export function HostSplitMethodPanel({ arka, onMethodChange, onCustomApply, onSp
           })}
         </div>
 
-        {arka.splitMethod === 'custom' ? <div className="host-custom-split">{isCustomFormOpen ? <><div className="host-split-subheading"><div><strong>Custom percentages</strong><span>Set each share. The remaining balance updates as you go.</span></div><span className="host-percentage-total"><Percent size={14} /> 100</span></div><div className="host-custom-members">{arka.members.map((member, index) => <label key={member.id} className="host-custom-member"><MemberIdenticon seed={member.walletAddress ?? member.userId} className="size-10" /><span className="host-custom-member-copy"><strong>{member.displayName}</strong><small>{formatUsd(fiatAmounts[index])} · ≈ {formatNim(nimAmounts[index])}</small></span><span className="host-percentage-input"><input type="text" inputMode="decimal" value={effectivePercentages[index] ?? 0} readOnly={splitIsLocked} aria-label={`${member.displayName} share percentage`} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handlePercentageChange(index, event.target.value)} /><span>%</span></span></label>)}</div><Button type="button" className="host-apply-split" disabled={splitIsLocked} onClick={handleApplyCustomSplit}><Check size={18} />Apply custom split</Button></> : <div className="host-custom-summary"><span className="host-custom-summary-icon"><Check size={17} /></span><div><strong>Custom split applied</strong><span>100% shared across {arka.members.length} people</span></div><button type="button" disabled={splitIsLocked} onClick={() => setIsCustomFormOpen(true)}><PencilLine size={16} />Edit</button></div>}</div> : null}
+        {arka.splitMethod === 'custom' ? <div className="host-custom-split">{isCustomFormOpen ? <><div className="host-split-subheading"><div><strong>Custom percentages</strong><span>Set each share. The remaining balance updates as you go.</span></div><span className="host-percentage-total"><Percent size={14} /> 100</span></div><div className="host-custom-members">{arka.members.map((member, index) => <label key={member.id} className="host-custom-member"><MemberIdenticon seed={member.walletAddress ?? member.userId} className="size-10" /><span className="host-custom-member-copy"><strong>{formatPublicIdentity(member.displayName, member.walletAddress)}</strong><small>{formatUsd(fiatAmounts[index])} · ≈ {formatNim(nimAmounts[index])}</small></span><span className="host-percentage-input"><input type="text" inputMode="decimal" value={effectivePercentages[index] ?? 0} readOnly={splitIsLocked} aria-label={`${formatPublicIdentity(member.displayName, member.walletAddress)} share percentage`} onFocus={(event) => event.currentTarget.select()} onChange={(event) => handlePercentageChange(index, event.target.value)} /><span>%</span></span></label>)}</div><Button type="button" className="host-apply-split" disabled={splitIsLocked} onClick={handleApplyCustomSplit}><Check size={18} />Apply custom split</Button></> : <div className="host-custom-summary"><span className="host-custom-summary-icon"><Check size={17} /></span><div><strong>Custom split applied</strong><span>100% shared across {arka.members.length} people</span></div><button type="button" disabled={splitIsLocked} onClick={() => setIsCustomFormOpen(true)}><PencilLine size={16} />Edit</button></div>}</div> : null}
 
         {arka.splitMethod === 'sponsor' ? <div className="host-treating-flow">
-          <div className="host-split-subheading"><div><strong>Everyone is in</strong><span>Spin once to choose who treats the Arka</span></div><Gift size={20} /></div>
-          <div className="host-wheel-area"><span className="host-wheel-pointer" aria-hidden="true">▼</span><div className="host-treating-wheel" style={{ background: wheelBackground }} aria-label="Payer selection wheel">{wheelLabels}<span className={cn('host-wheel-center', candidateMember && 'has-winner')}>{candidateMember ? <><MemberIdenticon seed={candidateMember.walletAddress ?? candidateMember.userId} className="host-wheel-winner-avatar" /><small>{candidateMember.displayName}</small></> : <Gift size={22} />}</span></div><Button type="button" className="host-spin-button" disabled={splitIsLocked || sponsorStage !== 'ready' || Boolean(selectedMember)} onClick={handleSpinWheel}>{selectedMember ? <><Check size={18} />Payer selected</> : <><RefreshCcw size={18} />Spin the wheel</>}</Button></div>
-          {selectedMember ? <div className="host-custom-summary" role="status"><span className="host-custom-summary-icon"><Check size={17} /></span><div><strong>{selectedMember.displayName} is treating this Arka</strong><span>They cover {formatUsd(arka.totalFiat)} and confirm it in Nimiq Pay.</span></div></div> : null}
+          <div className="host-split-subheading"><div><strong>{allMembersAccepted ? 'Everyone accepted' : 'Waiting for approval'}</strong><span>{allMembersAccepted ? 'Spin once to choose who treats the Arka' : 'Guests must opt in before anyone can be selected'}</span></div>{allMembersAccepted ? <Check size={20} /> : <Clock3 size={20} />}</div>
+          {!selectedMember ? <div className="mt-3 rounded-xl border border-[#eadfc9] bg-[#fffdf8] p-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3 text-sm font-extrabold"><span>{acceptedCount} of {arka.members.length} accepted</span><span className={declinedCount ? 'text-arka-error' : 'text-arka-muted'}>{declinedCount ? `${declinedCount} declined` : 'Host accepted automatically'}</span></div>
+            <div className="host-approval-track" aria-hidden="true"><span style={{ transform: `scaleX(${arka.members.length ? acceptedCount / arka.members.length : 0})` }} /></div>
+            <div className="host-approval-members">
+              {arka.members.map((member) => {
+                const status = sponsorResponses?.[member.id]?.status ?? 'pending'
+                return <div key={member.id} className={cn('host-approval-member', status === 'accepted' && 'is-accepted')}><MemberIdenticon seed={member.walletAddress ?? member.userId} className="size-8 shadow-none" /><span>{formatPublicIdentity(member.displayName, member.walletAddress)}</span>{status === 'accepted' ? <Check size={16} /> : status === 'declined' ? <XCircle className="text-arka-error" size={16} /> : <span className="host-approval-dot" />}</div>
+              })}
+            </div>
+          </div> : null}
+          <div className="host-wheel-area"><span className="host-wheel-pointer" aria-hidden="true">▼</span><div className="host-treating-wheel" style={{ background: wheelBackground }} aria-label="Payer selection wheel">{wheelLabels}<span className={cn('host-wheel-center', candidateMember && 'has-winner')}>{candidateMember ? <><MemberIdenticon seed={candidateMember.walletAddress ?? candidateMember.userId} className="host-wheel-winner-avatar" /><small>{formatPublicIdentity(candidateMember.displayName, candidateMember.walletAddress)}</small></> : <Gift size={22} />}</span></div><Button type="button" className="host-spin-button" disabled={splitIsLocked || !allMembersAccepted || sponsorStage !== 'ready' || Boolean(selectedMember)} onClick={handleSpinWheel}>{selectedMember ? <><Check size={18} />Payer selected</> : allMembersAccepted ? <><RefreshCcw size={18} />Spin the wheel</> : <><Clock3 size={18} />Waiting for approvals</>}</Button></div>
+          {selectedMember ? <div className="host-custom-summary" role="status"><span className="host-custom-summary-icon"><Check size={17} /></span><div><strong>{formatPublicIdentity(selectedMember.displayName, selectedMember.walletAddress)} is treating this Arka</strong><span>They cover {formatUsd(arka.totalFiat)} and confirm it in Nimiq Pay.</span></div></div> : null}
         </div> : null}
       </section>
       {wheelOverlay}

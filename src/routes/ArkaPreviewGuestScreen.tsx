@@ -20,9 +20,9 @@ import { NimiqArrowLeft, NimiqArrowRight, NimiqLockLocked } from '../components/
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
+import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
 import { buildArkaWithLocalGuest, findLocalGuest } from '../lib/arka/localGuestMembership'
 import { useArkaStore } from '../store/arkaStore'
-import { useProfileStore } from '../store/profileStore'
 import { useWalletStore } from '../store/walletStore'
 import type { SplitMethodType } from '../types/arka'
 import { getHostName } from './routeUtils'
@@ -38,16 +38,15 @@ export function ArkaPreviewGuestScreen() {
   const { code } = useParams()
   const navigate = useNavigate()
   const arka = useArkaStore((state) => state.findArkaByCode(code))
-  const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
+  const currentGuestMemberId = useArkaStore((state) => (
+    arka ? state.guestMemberIdsByArka[arka.id] : state.currentGuestMemberId
+  ))
   const loadArkaInvite = useArkaStore((state) => state.loadArkaInvite)
   const joinArka = useArkaStore((state) => state.joinArka)
-  const displayName = useProfileStore((state) => state.displayName)
-  const setDisplayName = useProfileStore((state) => state.setDisplayName)
   const walletAddress = useWalletStore((state) => state.wallet?.address)
   const [failedReference, setFailedReference] = useState('')
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
-  const [draftDisplayName, setDraftDisplayName] = useState(displayName)
 
   useEffect(() => {
     if (!code) return
@@ -86,7 +85,7 @@ export function ArkaPreviewGuestScreen() {
   const existingGuest = arka.members.find((member) => member.id === currentGuestMemberId) ?? findLocalGuest(arka)
   const prospectiveMembership = !existingGuest
     ? buildArkaWithLocalGuest(arka, arka.updatedAt, {
-        displayName: draftDisplayName,
+        displayName: walletAddress ? formatPublicIdentity(undefined, walletAddress) : undefined,
         walletAddress,
       })
     : undefined
@@ -101,16 +100,9 @@ export function ArkaPreviewGuestScreen() {
   const CategoryIcon = arkaCategoryIcons[activeArka.metadata?.category ?? 'custom']
 
   async function handleJoin() {
-    const cleanDisplayName = draftDisplayName.trim()
-    if (!existingGuest && !cleanDisplayName) {
-      setJoinError('Add the name your group will recognize.')
-      return
-    }
-
     setIsJoining(true)
     setJoinError('')
     try {
-      if (!existingGuest) setDisplayName(cleanDisplayName)
       const joined = await joinArka(code ?? activeArka.code)
       navigate(joined ? `/arka/${joined.id}/guest` : '/error/arka-not-found')
     } catch {
@@ -153,28 +145,10 @@ export function ArkaPreviewGuestScreen() {
           </div>
         </section>
 
-        {!existingGuest ? (
-          <section className="mt-5 rounded-[1.4rem] border border-[#e6cf94] bg-[#fff8e7] p-4 shadow-[0_5px_12px_rgba(125,87,0,0.06)]">
-            <label htmlFor="guest-display-name" className="block text-xs font-extrabold uppercase tracking-[0.12em] text-[#7d5700]">
-              Your Arka name
-            </label>
-            <input
-              id="guest-display-name"
-              value={draftDisplayName}
-              onChange={(event) => {
-                setDraftDisplayName(event.target.value)
-                if (joinError) setJoinError('')
-              }}
-              maxLength={40}
-              autoComplete="nickname"
-              className="mt-2 min-h-14 w-full rounded-2xl border border-[#d9c69e] bg-white px-4 text-base font-bold text-[#111b25] outline-none focus:border-[#a46f00] focus:ring-2 focus:ring-[#f7c842]/35"
-              placeholder="How your friends know you"
-              aria-describedby="guest-display-name-help"
-            />
-            <p id="guest-display-name-help" className="mt-2 text-xs font-semibold leading-5 text-[#68727c]">
-              This public name is shown to members of this Arka.
-            </p>
-          </section>
+        {!existingGuest && walletAddress ? (
+          <p className="mt-5 rounded-[1.4rem] border border-[#e6cf94] bg-[#fff8e7] p-4 text-sm font-semibold leading-5 text-[#5f4a18] shadow-[0_5px_12px_rgba(125,87,0,0.06)]">
+            You will join as <strong>{formatPublicIdentity(undefined, walletAddress)}</strong>. No handle is required.
+          </p>
         ) : null}
 
         <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Arka details">
@@ -236,7 +210,7 @@ export function ArkaPreviewGuestScreen() {
                       {isPaid ? <CheckCircle2 size={14} /> : <Clock3 size={13} />}
                     </span>
                   </div>
-                  <p className="mt-2 truncate text-sm font-semibold text-[#111b25]">@{member.displayName.toLowerCase().replaceAll(' ', '')}</p>
+                  <p className="mt-2 truncate text-sm font-semibold text-[#111b25]">{formatPublicIdentity(member.displayName, member.walletAddress)}</p>
                 </div>
               )
             })}

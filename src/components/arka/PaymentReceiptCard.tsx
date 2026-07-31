@@ -2,6 +2,7 @@ import { CalendarDays, Check, UsersRound } from 'lucide-react'
 import { calculateArkaProgress } from '../../lib/arka/calculateArkaProgress'
 import { arkaCategoryIcons } from '../../lib/arka/categoryIcons'
 import { formatDate, formatNim, formatUsd } from '../../lib/arka/formatMoney'
+import { formatPublicIdentity } from '../../lib/arka/formatWalletAddress'
 import type { Arka, ArkaMember, AssetSymbol } from '../../types/arka'
 import type { Payment } from '../../types/payment'
 import { ArkaBrandMark } from './ArkaBrandMark'
@@ -60,7 +61,7 @@ export function PaymentReceiptCard({ arka, member, asset, payment }: PaymentRece
         <div className="mt-4 grid grid-cols-2 divide-x divide-[#eadfce] rounded-2xl border border-[#eee6d9] bg-white/70 py-3">
           <div className="min-w-0 px-3">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-arka-muted">Paid by</p>
-            <p className="mt-1 truncate text-sm font-black text-arka-text">{member.displayName}</p>
+            <p className="mt-1 truncate text-sm font-black text-arka-text">{formatPublicIdentity(member.displayName, member.walletAddress)}</p>
           </div>
           <div className="min-w-0 px-3">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-arka-muted">Group status</p>

@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Link } from 'react-router-dom'
 import { analyticsContextForArka, trackAnalyticsEvent } from '../../lib/analytics/analytics'
 import { arkaCategoryIcons } from '../../lib/arka/categoryIcons'
+import { formatPublicIdentity } from '../../lib/arka/formatWalletAddress'
 import type { Arka } from '../../types/arka'
 import { Button } from '../ui/Button'
 import { ArkaBrandMark } from './ArkaBrandMark'
@@ -13,7 +14,11 @@ const transparentQrExcavation = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w
 export function ShareQrCard({ arka, hostName, returnTo }: { arka: Arka; hostName?: string; returnTo: string }) {
   const [feedback, setFeedback] = useState('')
   const feedbackTimer = useRef<number | undefined>(undefined)
-  const displayHostName = hostName ?? arka.members.find((member) => member.role === 'host')?.displayName ?? 'Host'
+  const hostMember = arka.members.find((member) => member.role === 'host')
+  const displayHostName = formatPublicIdentity(
+    hostName ?? hostMember?.displayName ?? 'Host',
+    hostMember?.walletAddress ?? arka.hostWalletAddress,
+  )
   const CategoryIcon = arkaCategoryIcons[arka.metadata?.category ?? 'custom']
   const memberLabel = `${arka.members.length} ${arka.members.length === 1 ? 'member' : 'members'}`
   const invitePath = `/join/${arka.invite.publicToken ?? arka.code}/preview`

@@ -8,12 +8,14 @@ export function BottomSheet({
   eyebrow,
   onClose,
   children,
+  dismissible = true,
 }: {
   open: boolean
   title: string
   eyebrow?: string
   onClose: () => void
   children: ReactNode
+  dismissible?: boolean
 }) {
   const titleId = useId()
 
@@ -21,12 +23,12 @@ export function BottomSheet({
     if (!open) return
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (dismissible && event.key === 'Escape') onClose()
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, open])
+  }, [dismissible, onClose, open])
 
   return (
     <AnimatePresence>
@@ -38,7 +40,7 @@ export function BottomSheet({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           onMouseDown={(event) => {
-            if (event.currentTarget === event.target) onClose()
+            if (dismissible && event.currentTarget === event.target) onClose()
           }}
         >
           <motion.section
@@ -57,14 +59,14 @@ export function BottomSheet({
                 {eyebrow ? <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-arka-muted">{eyebrow}</p> : null}
                 <h2 id={titleId} className="mt-1 break-words text-2xl font-black tracking-[-0.03em]">{title}</h2>
               </div>
-              <button
+              {dismissible ? <button
                 type="button"
                 className="grid size-11 shrink-0 place-items-center rounded-2xl border border-[#e4ded3] bg-white text-arka-text transition active:scale-95"
                 aria-label="Close"
                 onClick={onClose}
               >
                 <X size={20} />
-              </button>
+              </button> : null}
             </header>
             <div className="mt-5">{children}</div>
           </motion.section>

@@ -2,6 +2,7 @@ import { Clock3, Gift } from 'lucide-react'
 import type { Arka } from '../../types/arka'
 import { calculateArkaProgress } from '../../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../../lib/arka/formatMoney'
+import { formatPublicIdentity } from '../../lib/arka/formatWalletAddress'
 import { cn } from '../../lib/utils/cn'
 import { ArkaCoreHexagon } from './ArkaCoreHexagon'
 import { ArkaMark } from './ArkaMark'
@@ -76,7 +77,7 @@ export function HoneycombProgress({ arka, center = 'total' }: { arka: Arka; cent
                 seed={member.walletAddress ?? member.userId}
                 className="host-honeycomb-avatar"
               />
-              <p className="host-honeycomb-handle">@{member.displayName.toLowerCase().replaceAll(' ', '')}</p>
+              <p className="host-honeycomb-handle">{formatPublicIdentity(member.displayName, member.walletAddress)}</p>
               <p className="host-honeycomb-member-amount">{formatUsd(displayAmount)}</p>
               <span className="host-honeycomb-status">
                 {isTreating ? (

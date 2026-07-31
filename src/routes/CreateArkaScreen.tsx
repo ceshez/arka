@@ -127,7 +127,7 @@ export function CreateArkaScreen() {
   }
 
   return (
-    <MobileScreen className="create-arka-screen flex justify-end !bg-[#fffaf5]">
+    <MobileScreen className="create-arka-screen flex justify-end !bg-[#fffaf5]" scrollable={false}>
       <motion.form
         onSubmit={handleCreate}
         className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#fffaf5]"
@@ -305,7 +305,7 @@ export function CreateArkaScreen() {
         </div>
 
       </ScreenContainer>
-      <footer className="create-arka-footer relative z-30 shrink-0 border-t border-[#e8dfd1] bg-[#fffaf5] px-5 pb-2 pt-2">
+      <footer className="arka-bottom-action create-arka-footer relative z-30 shrink-0 border-t border-[#e8dfd1] bg-[#fffaf5] px-5 pb-2 pt-2">
         {createError ? <p className="mb-2 text-center text-sm font-semibold text-arka-error" role="alert">{createError}</p> : null}
         <Button type="submit" className="relative min-h-14 text-base" disabled={isCreating}>
           <span>{isCreating ? 'Creating shared Arka…' : 'Create Arka'}</span>

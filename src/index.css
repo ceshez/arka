@@ -553,10 +553,17 @@ svg[aria-hidden="true"].branded-qr-code path:last-of-type {
 }
 
 .host-dashboard-header {
-  position: relative;
+  position: sticky;
   z-index: 10;
+  top: 0;
   justify-content: space-between;
   gap: 0.5rem;
+  margin-inline: -0.3rem;
+  border-bottom: 1px solid rgba(213, 196, 173, 0.72);
+  padding: 0.7rem 0.3rem;
+  background: rgba(250, 249, 244, 0.94);
+  box-shadow: 0 7px 18px rgba(27, 28, 25, 0.05);
+  backdrop-filter: blur(16px);
 }
 
 .host-dashboard-brand {

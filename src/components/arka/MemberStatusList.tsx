@@ -3,6 +3,7 @@ import { formatNim, formatUsd } from '../../lib/arka/formatMoney'
 import { MemberIdenticon } from './MemberIdenticon'
 import { Badge } from '../ui/Badge'
 import { StatusPill } from '../ui/StatusPill'
+import { formatPublicIdentity } from '../../lib/arka/formatWalletAddress'
 
 export function MemberStatusList({ members }: { members: ArkaMember[] }) {
   return (
@@ -18,7 +19,7 @@ export function MemberStatusList({ members }: { members: ArkaMember[] }) {
           <MemberIdenticon seed={member.walletAddress ?? member.userId} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-black">{member.displayName}</p>
+              <p className="truncate text-sm font-black">{formatPublicIdentity(member.displayName, member.walletAddress)}</p>
               {member.role === 'host' ? <span className="text-sm font-bold text-arka-muted">Host</span> : null}
             </div>
             <p className="text-sm font-semibold text-arka-muted">

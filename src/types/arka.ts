@@ -36,6 +36,18 @@ export type ArkaMemberStatus =
 
 export type SplitMethodType = 'equal' | 'custom' | 'by-consumption' | 'sponsor'
 
+export type SponsorConsentStatus = 'pending' | 'accepted' | 'declined'
+
+export type SponsorModeRequest = {
+  id: string
+  requestedAt: string
+  requestedByMemberId: string
+  responses: Record<string, {
+    status: SponsorConsentStatus
+    respondedAt?: string
+  }>
+}
+
 export type Asset = {
   symbol: AssetSymbol
   name: string
@@ -102,7 +114,9 @@ export type Arka = {
   totalNimEstimate: number
   totalUsdtEstimate?: number
   selectedAsset: AssetSymbol
+  contributionAsset?: AssetSymbol
   splitMethod: SplitMethodType
+  sponsorModeRequest?: SponsorModeRequest
   members: ArkaMember[]
   invite: ArkaInvite
   createdAt: string

@@ -10,5 +10,5 @@ export function lunaToNim(luna: number) {
 
 export function estimateNimFromFiat(amountFiat: number, totalFiat: number, totalNim: number) {
   if (totalFiat <= 0) return 0
-  return Number(((amountFiat / totalFiat) * totalNim).toFixed(2))
+  return Number(((amountFiat / totalFiat) * totalNim).toFixed(5))
 }

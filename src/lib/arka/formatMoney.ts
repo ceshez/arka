@@ -8,13 +8,13 @@ export function formatUsd(value: number) {
 
 export function formatNim(value: number) {
   return `${new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 5,
   }).format(value)} NIM`
 }
 
 export function formatUsdt(value: number) {
   return `${new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 6,
   }).format(value)} USDT`
 }
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Arka } from '../../types/arka'
+import type { Arka, AssetSymbol } from '../../types/arka'
 import { getSupabaseClient, getSupabaseConfiguration } from '../supabase/client'
 import { createRandomId } from '../utils/createRandomId'
 
@@ -109,4 +109,37 @@ export async function updateSharedInvite(arka: Arka, hostSecret: string) {
     p_arka: arka,
   })
   return result.arka
+}
+
+export async function respondToSponsorModeRequest(input: {
+  reference: string
+  guestKey: string
+  requestId: string
+  accepted: boolean
+}) {
+  const result = await callInviteRpc<InviteResponse>('respond_arka_sponsor_request', {
+    p_reference: input.reference.trim(),
+    p_guest_key: input.guestKey,
+    p_request_id: input.requestId,
+    p_accepted: input.accepted,
+  })
+  return result.arka
+}
+
+export async function confirmSharedMemberPayment(input: {
+  reference: string
+  guestKey: string
+  asset: AssetSymbol
+}) {
+  const result = await callInviteRpc<InviteResponse>('confirm_arka_member_payment', {
+    p_reference: input.reference.trim(),
+    p_guest_key: input.guestKey,
+    p_asset: input.asset,
+  })
+
+  if (!result.memberId) {
+    throw new InviteRepositoryError('The paid member could not be loaded.', 'request-failed')
+  }
+
+  return { arka: result.arka, memberId: result.memberId }
 }

@@ -57,7 +57,7 @@ export function YourPeopleSheet({ open, onClose }: { open: boolean; onClose: () 
           {contacts.map((contact, index) => {
             const nickname = nicknames[contact.id]
             return <div key={contact.id} className={`flex min-h-[82px] items-center gap-3 px-4 py-3 ${index ? 'border-t border-[#eee8df]' : ''}`}>
-              <MemberIdenticon seed={contact.id} className="size-12 shrink-0" />
+              <MemberIdenticon seed={contact.avatarSeed} className="size-12 shrink-0" />
               <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{nickname || contact.name}</p>{nickname ? <p className="text-xs font-semibold text-arka-muted">{contact.name}</p> : null}<p className="mt-1 truncate text-xs font-semibold text-arka-muted">{contact.arkaCount} {contact.arkaCount === 1 ? 'Arka' : 'Arkas'} · {formatNim(contact.totalSharedNim)} shared</p></div>
               <button type="button" onClick={() => openNickname(contact)} className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f6f2e9] text-[#7d5700]" aria-label={`Set a nickname for ${contact.name}`}><Pencil size={16} /></button>
             </div>

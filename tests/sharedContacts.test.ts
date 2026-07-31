@@ -66,6 +66,7 @@ test('derives real contacts, excludes the current wallet, and aggregates shared 
 
   assert.deepEqual(contacts, [{
     id: 'wallet:NQMARIA',
+    avatarSeed: 'NQMARIA',
     name: 'María',
     arkaCount: 2,
     lastArkaName: 'Trip',

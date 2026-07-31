@@ -9,17 +9,13 @@ import { MobileScreen } from '../components/ui/MobileScreen'
 import { NimiqArrowLeft, NimiqHexagon, NimiqTransfer } from '../components/ui/NimiqIcon'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd, formatUsdt } from '../lib/arka/formatMoney'
+import { formatWalletAddress } from '../lib/arka/formatWalletAddress'
 import { getSettlementReadiness } from '../lib/arka/getSettlementReadiness'
 import { getNimiqWalletSurfaceName } from '../lib/nimiq/detectNimiqEnvironment'
 import { useArkaStore } from '../store/arkaStore'
 
 type BarcodeDetectorInstance = { detect: (source: ImageBitmap) => Promise<Array<{ rawValue: string }>> }
 type BarcodeDetectorConstructor = new (options: { formats: string[] }) => BarcodeDetectorInstance
-
-function truncateWalletAddress(address: string) {
-  const normalized = address.trim().replaceAll(/\s+/g, ' ')
-  return normalized.length <= 19 ? normalized : `${normalized.slice(0, 10)}…${normalized.slice(-7)}`
-}
 
 function recipientFromQr(value: string) {
   const decoded = decodeURIComponent(value)
@@ -120,7 +116,7 @@ export function SettlePaymentScreen() {
 
         <Card className="space-y-4 p-4" aria-label="Merchant details">
           <label className="grid gap-1.5 text-sm font-black"><span className="flex items-center gap-2"><Store size={17} />Merchant name <small className="font-semibold text-arka-muted">optional</small></span><input value={merchantName} onChange={(event) => setMerchantName(event.target.value)} placeholder="e.g. Café Central" className="min-h-12 rounded-xl border border-[#dfd5c4] bg-[#fffdf8] px-3 font-semibold outline-none focus:border-[#e9b213]" /></label>
-          <div className="grid gap-1.5 text-sm font-black"><span className="flex items-center gap-2"><WalletCards size={17} />Merchant wallet <small className="font-semibold text-arka-muted">from QR</small></span><div className={`flex min-h-14 items-center rounded-xl px-3 ${hasRecipient ? 'bg-[#edf8ef] text-[#155f2b]' : 'bg-[#f3f0ea] text-arka-muted'}`}><span className="font-mono text-sm font-semibold">{hasRecipient ? truncateWalletAddress(merchantWallet) : 'Scan a merchant QR to continue'}</span></div></div>
+          <div className="grid gap-1.5 text-sm font-black"><span className="flex items-center gap-2"><WalletCards size={17} />Merchant wallet <small className="font-semibold text-arka-muted">from QR</small></span><div className={`flex min-h-14 items-center rounded-xl px-3 ${hasRecipient ? 'bg-[#edf8ef] text-[#155f2b]' : 'bg-[#f3f0ea] text-arka-muted'}`}><span className="font-mono text-sm font-semibold">{hasRecipient ? formatWalletAddress(merchantWallet) : 'Scan a merchant QR to continue'}</span></div></div>
           <label className="grid gap-1.5 text-sm font-black"><span className="flex items-center gap-2"><StickyNote size={17} />Notes <small className="font-semibold text-arka-muted">optional</small></span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={`Settlement for ${arka.name}`} rows={3} className="rounded-xl border border-[#dfd5c4] bg-[#fffdf8] px-3 py-2 text-sm font-semibold outline-none focus:border-[#e9b213]" /></label>
           <div className="flex items-center gap-3 rounded-xl bg-[#fff8e8] p-3"><NimiqHexagon className="shrink-0 text-[#a46f00]" size={22} /><p className="text-xs font-semibold leading-4"><strong className="block">Collected by the host, settled with {walletSurfaceName}.</strong>Your settlement will be confirmed in {walletSurfaceName}.</p></div>
         </Card>

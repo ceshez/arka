@@ -2,7 +2,7 @@ import { Check, CircleCheck, Clock3, LockKeyhole, PencilLine, UsersRound, X } fr
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { HoneycombProgress } from '../components/arka/HoneycombProgress'
-import { DemoLab } from '../components/arka/DemoLab'
+import { CashbackRewardsPanel } from '../components/arka/CashbackRewardsPanel'
 import { HostSplitMethodPanel } from '../components/arka/HostSplitMethodPanel'
 import { MemberStatusList } from '../components/arka/MemberStatusList'
 import { WalletStatus } from '../components/arka/WalletStatus'
@@ -17,24 +17,20 @@ import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { getSharedContactId } from '../lib/arka/getSharedContacts'
 import { getSettlementReadiness } from '../lib/arka/getSettlementReadiness'
+import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
+import { useSharedArkaRefresh } from '../hooks/useSharedArkaRefresh'
 import { useArkaStore } from '../store/arkaStore'
 import { useProfileStore } from '../store/profileStore'
 import type { ArkaMember } from '../types/arka'
 import type { SplitMethodType } from '../types/arka'
 
-function shortenedWallet(address: string) {
-  const compact = address.replace(/\s+/g, '').toUpperCase()
-  return compact.length > 12 ? `${compact.slice(0, 7)}...${compact.slice(-5)}` : compact
-}
-
 function joinedMemberLabel(member: ArkaMember, nicknames: Record<string, string>) {
   const nickname = nicknames[getSharedContactId(member)]?.trim()
   if (nickname) return nickname
 
-  const displayName = member.displayName.trim()
+  const displayName = formatPublicIdentity(member.displayName, member.walletAddress)
   const isGenericName = /^(guest|new guest)(\s+\d+)?$/i.test(displayName)
   if (displayName && !isGenericName) return displayName
-  if (member.walletAddress) return shortenedWallet(member.walletAddress)
   return displayName || 'A new member'
 }
 
@@ -46,9 +42,8 @@ export function HostCollectedFundsSummaryScreen() {
   const updateArkaSplitMethod = useArkaStore((state) => state.updateArkaSplitMethod)
   const updateArkaCustomSplit = useArkaStore((state) => state.updateArkaCustomSplit)
   const updateArkaSponsor = useArkaStore((state) => state.updateArkaSponsor)
-  const addDemoMember = useArkaStore((state) => state.addDemoMember)
-  const resetDemoPayments = useArkaStore((state) => state.resetDemoPayments)
-  const markDemoEveryonePaid = useArkaStore((state) => state.markDemoEveryonePaid)
+  const payments = useArkaStore((state) => state.payments)
+  const payCashbackReward = useArkaStore((state) => state.payCashbackReward)
   const refreshSharedArka = useArkaStore((state) => state.refreshSharedArka)
   const syncSharedArka = useArkaStore((state) => state.syncSharedArka)
   const contactNicknames = useProfileStore((state) => state.contactNicknames)
@@ -100,16 +95,20 @@ export function HostCollectedFundsSummaryScreen() {
     })
   }, [arka, contactNicknames, showToast])
 
-  useEffect(() => {
-    if (!arkaId || !arka?.invite.publicToken) return
+  const handleRefreshError = useCallback(() => {
+    showToast({
+      tone: 'info',
+      title: 'Waiting to reconnect',
+      message: 'New members will appear as soon as the shared Arka is reachable.',
+    })
+  }, [showToast])
 
-    const refresh = () => {
-      void refreshSharedArka(arkaId).catch(() => undefined)
-    }
-    refresh()
-    const interval = window.setInterval(refresh, 5_000)
-    return () => window.clearInterval(interval)
-  }, [arka?.invite.publicToken, arkaId, refreshSharedArka])
+  useSharedArkaRefresh({
+    arkaId,
+    enabled: Boolean(arka?.invite.publicToken),
+    refresh: refreshSharedArka,
+    onError: handleRefreshError,
+  })
 
   if (!arka) return <Navigate to="/error/arka-not-found" replace />
 
@@ -286,15 +285,6 @@ export function HostCollectedFundsSummaryScreen() {
 
         <div className="host-dashboard-desktop-grid">
           <div className="host-dashboard-visual-column">
-            <DemoLab
-              memberCount={progress.memberCount}
-              paidCount={progress.paidMemberCount}
-              collected={formatUsd(progress.collectedFiat)}
-              onAddPerson={() => addDemoMember(activeArka.id)}
-              onReset={() => resetDemoPayments(activeArka.id)}
-              onMarkPaid={() => markDemoEveryonePaid(activeArka.id)}
-            />
-
             <HoneycombProgress arka={activeArka} />
           </div>
 
@@ -349,6 +339,12 @@ export function HostCollectedFundsSummaryScreen() {
             </p>
 
             <MemberStatusList members={activeArka.members} />
+            <CashbackRewardsPanel
+              arka={activeArka}
+              payments={payments}
+              onPay={(memberId) => payCashbackReward(activeArka.id, memberId)}
+              onNotice={showToast}
+            />
           </div>
         </div>
       </ScreenContainer>

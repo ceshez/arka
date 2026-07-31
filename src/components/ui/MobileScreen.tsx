@@ -17,12 +17,14 @@ export function MobileScreen({
   className,
   withBottomAction = false,
   showBottomNav = true,
+  scrollable = true,
   appearance = 'default',
 }: {
   children: ReactNode
   className?: string
   withBottomAction?: boolean
   showBottomNav?: boolean
+  scrollable?: boolean
   appearance?: 'default' | 'home'
 }) {
   const usesHomeAppearance = appearance === 'home'
@@ -88,7 +90,10 @@ export function MobileScreen({
         <div
           ref={scrollContainerRef}
           className={cn(
-            'arka-screen-scroll relative mx-auto flex h-full max-h-full min-h-0 w-full max-w-[430px] touch-pan-y flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain bg-arka-bg [-webkit-overflow-scrolling:touch]',
+            'arka-screen-scroll relative mx-auto flex h-full max-h-full min-h-0 w-full max-w-[430px] flex-col overflow-x-hidden bg-arka-bg',
+            scrollable
+              ? 'touch-pan-y overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]'
+              : 'touch-auto overflow-y-hidden',
             !usesHomeAppearance && 'sm:border-x sm:border-[#ded8cd] sm:shadow-[0_0_24px_rgba(27,28,25,0.08)]',
             bottomPaddingClass,
             className,

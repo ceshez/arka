@@ -7,7 +7,9 @@ import { MobileScreen } from '../components/ui/MobileScreen'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { useArkaStore } from '../store/arkaStore'
+import { useWalletStore } from '../store/walletStore'
 import type { ArkaStatus, ArkaSummary } from '../types/arka'
+import { getArkaDestination } from './routeUtils'
 
 type HistoryFilter = 'all' | 'active' | 'pending' | 'completed'
 
@@ -36,14 +38,12 @@ function getStatusPresentation(arka: ArkaSummary) {
   return { label: arka.status === 'draft' ? 'Pending' : 'Active', detail: arka.status === 'draft' ? 'Draft' : `${pendingCount} pending`, classes: 'bg-[#fff1cf] text-[#765000]' }
 }
 
-function getArkaDestination(arka: ArkaSummary) {
-  if (arka.status === 'completed') return `/arka/${arka.id}/completed`
-  if (arka.status === 'ready-to-settle') return `/arka/${arka.id}/settle`
-  return `/arka/${arka.id}/host/summary`
-}
-
 export function CompletedArkasHistoryScreen() {
   const recentArkas = useArkaStore((state) => state.recentArkas)
+  const arkas = useArkaStore((state) => state.arkas)
+  const guestMemberIdsByArka = useArkaStore((state) => state.guestMemberIdsByArka)
+  const remoteHostSecrets = useArkaStore((state) => state.remoteHostSecrets)
+  const walletAddress = useWalletStore((state) => state.wallet?.address)
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('all')
   const totalMoved = recentArkas.reduce((total, arka) => total + arka.collectedFiat, 0)
   const totalNimMoved = recentArkas.reduce((total, arka) => total + arka.collectedNim, 0)
@@ -81,8 +81,16 @@ export function CompletedArkasHistoryScreen() {
             const CategoryIcon = arkaCategoryIcons[arka.category]
             const status = getStatusPresentation(arka)
             const progress = arka.totalFiat > 0 ? Math.min(100, Math.round((arka.collectedFiat / arka.totalFiat) * 100)) : 0
+            const fullArka = arkas.find((candidate) => candidate.id === arka.id)
+            const destination = fullArka
+              ? getArkaDestination(fullArka, {
+                  walletAddress,
+                  guestMemberId: guestMemberIdsByArka[arka.id],
+                  hasHostSecret: Boolean(remoteHostSecrets[arka.id]),
+                })
+              : arka.status === 'completed' ? `/arka/${arka.id}/completed` : '/join'
             return (
-              <Link key={arka.id} to={getArkaDestination(arka)} className="block overflow-hidden rounded-xl border border-[#e5d9c8] bg-white p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7d5700] active:bg-[#fffaf0]" aria-label={`Open ${arka.name}, ${status.label}`}>
+              <Link key={arka.id} to={destination} className="block overflow-hidden rounded-xl border border-[#e5d9c8] bg-white p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7d5700] active:bg-[#fffaf0]" aria-label={`Open ${arka.name}, ${status.label}`}>
                 <span className="flex items-center gap-3">
                   <span className="arka-hex grid size-12 shrink-0 place-items-center bg-[#fff0bd] text-[#7d5700]"><CategoryIcon size={22} /></span>
                   <span className="min-w-0 flex-1"><strong className="block truncate text-base font-black">{arka.name}</strong><span className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-arka-muted"><UsersRound size={15} />{arka.memberCount} {arka.memberCount === 1 ? 'member' : 'members'} · {status.detail}</span></span>

@@ -1,46 +1,52 @@
 import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
-import { ArrowRight, ChevronRight, Hexagon, Plus, QrCode, Sparkles, UsersRound } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, ChevronRight, Gift, Hexagon, Plus, QrCode, UsersRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { MemberIdenticon } from '../components/arka/MemberIdenticon'
 import { HomeArkasHeader } from '../components/arka/HomeArkasHeader'
 import { YourPeopleSheet } from '../components/arka/YourPeopleSheet'
+import { BottomSheet } from '../components/ui/BottomSheet'
+import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
+import { formatWalletAddress } from '../lib/arka/formatWalletAddress'
 import { getSharedContacts } from '../lib/arka/getSharedContacts'
 import { useArkaStore } from '../store/arkaStore'
-import { useProfileStore } from '../store/profileStore'
 import { useWalletStore } from '../store/walletStore'
+import { getArkaDestination } from './routeUtils'
 
 export function HomeScreen() {
-  const navigate = useNavigate()
   const [peopleOpen, setPeopleOpen] = useState(false)
-  const startDemoArka = useArkaStore((state) => state.useDemoArka)
+  const [nimEarnOpen, setNimEarnOpen] = useState(false)
   const arkas = useArkaStore((state) => state.arkas)
   const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
+  const guestMemberIdsByArka = useArkaStore((state) => state.guestMemberIdsByArka)
+  const remoteHostSecrets = useArkaStore((state) => state.remoteHostSecrets)
   const recentArkas = useArkaStore((state) => state.recentArkas)
-  const displayName = useProfileStore((state) => state.displayName)
   const wallet = useWalletStore((state) => state.wallet)
+  const walletAddress = wallet?.address
+  const visibleArkas = wallet ? arkas : []
+  const visibleRecentArkas = wallet ? recentArkas : []
   const sharedContacts = useMemo(
-    () => getSharedContacts(arkas, {
-      walletAddress: wallet?.address,
+    () => getSharedContacts(walletAddress ? arkas : [], {
+      walletAddress,
       memberId: currentGuestMemberId,
     }),
-    [arkas, currentGuestMemberId, wallet?.address],
+    [arkas, currentGuestMemberId, walletAddress],
   )
-  const activeArka = [...recentArkas].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0]
+  const activeArka = [...visibleRecentArkas].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0]
   const ActiveArkaIcon = arkaCategoryIcons[activeArka?.category ?? 'custom']
-  const activeArkaLink = activeArka?.status === 'completed'
-    ? `/arka/${activeArka.id}/completed`
-    : `/arka/${activeArka?.id}/host/summary`
+  const activeArkaRecord = activeArka ? visibleArkas.find((arka) => arka.id === activeArka.id) : undefined
+  const activeArkaLink = activeArkaRecord
+    ? getArkaDestination(activeArkaRecord, {
+        walletAddress,
+        guestMemberId: guestMemberIdsByArka[activeArkaRecord.id],
+        hasHostSecret: Boolean(remoteHostSecrets[activeArkaRecord.id]),
+      })
+    : '/'
   const progress = activeArka
     ? Math.min(100, Math.round((activeArka.collectedFiat / activeArka.totalFiat) * 100))
     : 0
-  const openDemo = () => {
-    const arka = startDemoArka()
-    navigate(`/arka/${arka.id}/guest`)
-  }
-
   return (
     <MobileScreen className="bg-[#faf9f4]">
       <motion.div
@@ -53,35 +59,31 @@ export function HomeScreen() {
 
         <div className="arka-home-hero-grid">
         <section className="mt-7">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.17em] text-arka-muted">Hello, {displayName || 'there'}</p>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.17em] text-arka-muted">Hello, {walletAddress ? formatWalletAddress(walletAddress) : 'there'}</p>
           <h1 className="mt-1 max-w-[330px] text-balance text-[32px] font-black leading-[1.08] tracking-[-0.035em]">Shared moments, paid together.</h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-arka-muted">Create a shared tab, invite your people, and settle with NIM.</p>
         </section>
 
-        <section
-          className="relative mt-6 overflow-hidden rounded-2xl bg-[#111214] bg-cover bg-right-bottom bg-no-repeat p-5 text-white shadow-[0_8px_20px_rgba(27,28,25,0.15)]"
+        <button
+          type="button"
+          className="relative mt-6 w-full overflow-hidden rounded-2xl bg-[#111214] bg-cover bg-right-bottom bg-no-repeat p-5 text-left text-white shadow-[0_8px_20px_rgba(27,28,25,0.15)] transition active:scale-[0.99]"
           style={{ backgroundImage: "linear-gradient(90deg, rgba(11,12,13,0.96) 0%, rgba(11,12,13,0.72) 52%, rgba(11,12,13,0.08) 100%), url('/brand/arka-card-texture-cropped.png')" }}
-          aria-label="NIM mainnet payment status"
+          aria-label="Open NIM earn details"
+          onClick={() => setNimEarnOpen(true)}
         >
           <div className="relative flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#f7c842]">
-                {wallet ? 'NIM payments' : 'Your Nimiq wallet'}
-              </p>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#f7c842]">NIM rewards</p>
               <h2 className="mt-3 text-[38px] font-black leading-none tracking-[-0.035em] !text-white">
-                {wallet ? 'Mainnet path' : 'Connect wallet'}
+                NIM earn
               </h2>
-              <p className="mt-2 text-xs font-semibold text-white/65">
-                {wallet
-                  ? 'Real transfers require your approval in Nimiq Pay.'
-                  : 'Connect before creating a real Arka.'}
-              </p>
+              <p className="mt-2 text-xs font-semibold text-white/65">Pay with NIM, earn 3% cashback.</p>
             </div>
             {wallet
               ? <MemberIdenticon seed={wallet.address} className="size-12 shrink-0 bg-transparent shadow-none" />
-              : <span className="grid size-12 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10 text-[#f7c842]"><Hexagon size={23} /></span>}
+              : <span className="grid size-12 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10 text-[#f7c842]"><Gift size={23} /></span>}
           </div>
-        </section>
+        </button>
         </div>
 
         <div className="arka-home-dashboard-grid">
@@ -130,7 +132,7 @@ export function HomeScreen() {
           <button type="button" onClick={() => setPeopleOpen(true)} className="mt-3 block w-full rounded-xl border border-[#e7dfd4] bg-white p-4 text-left active:bg-[#fffaf0]">
             <div className="flex items-center justify-between gap-3">
               <div className="flex -space-x-2">
-                {sharedContacts.slice(0, 5).map((contact) => <MemberIdenticon key={contact.id} seed={contact.id} className="size-11 border-[3px] border-white shadow-none" />)}
+                {sharedContacts.slice(0, 5).map((contact) => <MemberIdenticon key={contact.id} seed={contact.avatarSeed} className="size-11 border-[3px] border-white shadow-none" />)}
               </div>
               <span className="grid size-10 place-items-center rounded-xl bg-[#f5f1e9] text-arka-muted"><UsersRound size={19} /></span>
             </div>
@@ -141,13 +143,20 @@ export function HomeScreen() {
           </button>
         </section>
 
-        <button type="button" onClick={openDemo} className="mt-8 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#e5ddd0] bg-[#f5f1e9] px-4 text-sm font-black text-arka-text active:scale-[0.98]">
-          <Sparkles size={17} className="text-[#a46f00]" /> Try the guided demo
-        </button>
           </div>
         </div>
       </motion.div>
       <YourPeopleSheet open={peopleOpen} onClose={() => setPeopleOpen(false)} />
+      <BottomSheet open={nimEarnOpen} onClose={() => setNimEarnOpen(false)} eyebrow="NIM earn" title="Pay with NIM, earn 3% cashback">
+        <div className="rounded-2xl border border-[#e7c95e] bg-[#fff3c7] p-4">
+          <span className="grid size-12 place-items-center rounded-2xl bg-[#1b1c19] text-[#f7c842]"><Gift size={23} /></span>
+          <p className="mt-4 text-base font-black text-[#111b25]">A reward for paying together</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-arka-muted">
+            Eligible confirmed NIM contributions earn 3% cashback. The host sends the reward as a separate payment that you confirm in Nimiq Pay.
+          </p>
+        </div>
+        <Button type="button" className="mt-4" onClick={() => setNimEarnOpen(false)}>Got it</Button>
+      </BottomSheet>
     </MobileScreen>
   )
 }

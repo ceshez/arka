@@ -17,7 +17,9 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
   const [shareFeedback, setShareFeedback] = useState('Share payment')
   const [isShareCardOpen, setIsShareCardOpen] = useState(false)
   const arka = useArkaStore((state) => state.getArka(arkaId))
-  const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
+  const currentGuestMemberId = useArkaStore((state) => (
+    arkaId ? state.guestMemberIdsByArka[arkaId] : state.currentGuestMemberId
+  ))
   const activePayment = useArkaStore((state) => state.activePayment)
   const payments = useArkaStore((state) => state.payments)
   const paymentAssetSelections = useArkaStore((state) => state.paymentAssetSelections)

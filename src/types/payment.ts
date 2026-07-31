@@ -3,6 +3,7 @@ import type { AssetSymbol } from './arka'
 export type PaymentType =
   | 'member-contribution'
   | 'host-merchant-settlement'
+  | 'cashback-reward'
   | 'refund'
 
 export type PaymentStatus =
@@ -34,6 +35,8 @@ export type Payment = {
   id: string
   arkaId: string
   payerUserId: string
+  beneficiaryMemberId?: string
+  relatedPaymentId?: string
   type: PaymentType
   status: PaymentStatus
   asset: AssetSymbol

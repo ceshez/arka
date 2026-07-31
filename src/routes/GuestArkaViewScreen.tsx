@@ -1,5 +1,5 @@
-import { Clock3, ListChecks, ShieldCheck, UsersRound } from 'lucide-react'
-import { useState } from 'react'
+import { Clock3, Gift, ListChecks, Loader2, ShieldCheck, UsersRound } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { HoneycombProgress } from '../components/arka/HoneycombProgress'
 import { MemberIdenticon } from '../components/arka/MemberIdenticon'
@@ -13,14 +13,42 @@ import { MobileScreen } from '../components/ui/MobileScreen'
 import { NimiqCheckmarkSmall, NimiqHexagon, NimiqQrCode, NimiqTransfer } from '../components/ui/NimiqIcon'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
+import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
+import { calculateCashbackPreview } from '../lib/payments/cashback'
+import { useSharedArkaRefresh } from '../hooks/useSharedArkaRefresh'
 import { useArkaStore } from '../store/arkaStore'
-import { getGuestMember } from './routeUtils'
+import { getGuestMember, getHostName } from './routeUtils'
 
 export function GuestArkaViewScreen() {
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [respondingToSponsor, setRespondingToSponsor] = useState<'accept' | 'decline' | null>(null)
+  const [sponsorResponseError, setSponsorResponseError] = useState('')
   const { arkaId } = useParams()
   const arka = useArkaStore((state) => state.getArka(arkaId))
-  const currentGuestMemberId = useArkaStore((state) => state.currentGuestMemberId)
+  const currentGuestMemberId = useArkaStore((state) => (
+    arkaId ? state.guestMemberIdsByArka[arkaId] : state.currentGuestMemberId
+  ))
+  const refreshSharedArka = useArkaStore((state) => state.refreshSharedArka)
+  const respondToSponsorMode = useArkaStore((state) => state.respondToSponsorMode)
+
+  const handleSponsorResponse = useCallback(async (accepted: boolean) => {
+    if (!arkaId || respondingToSponsor) return
+    setRespondingToSponsor(accepted ? 'accept' : 'decline')
+    setSponsorResponseError('')
+    try {
+      await respondToSponsorMode(arkaId, accepted)
+    } catch {
+      setSponsorResponseError('Your response could not be saved. Check your connection and try again.')
+    } finally {
+      setRespondingToSponsor(null)
+    }
+  }, [arkaId, respondToSponsorMode, respondingToSponsor])
+
+  useSharedArkaRefresh({
+    arkaId,
+    enabled: Boolean(arka?.invite.publicToken),
+    refresh: refreshSharedArka,
+  })
 
   if (!arka) return <Navigate to="/error/arka-not-found" replace />
 
@@ -28,6 +56,16 @@ export function GuestArkaViewScreen() {
   if (!guest) return <Navigate to="/join" replace />
 
   const progress = calculateArkaProgress(arka)
+  const cashbackPreview = calculateCashbackPreview(guest.amountDueFiat, guest.amountDueNim)
+  const sponsorResponse = arka.sponsorModeRequest?.responses[guest.id]
+  const sponsorConsentOpen = arka.splitMethod === 'sponsor'
+    && Boolean(arka.sponsorModeRequest)
+    && (!sponsorResponse || sponsorResponse.status === 'pending')
+  const selectedSponsor = arka.splitMethod === 'sponsor'
+    ? arka.members.find((member) => member.amountDueFiat >= arka.totalFiat - 0.01)
+    : undefined
+  const sponsorSelectionPending = arka.splitMethod === 'sponsor' && !selectedSponsor
+  const guestHasAmountDue = guest.amountDueFiat - guest.amountPaidFiat > 0.001
 
   return (
     <MobileScreen className="host-dashboard-screen" withBottomAction>
@@ -79,7 +117,7 @@ export function GuestArkaViewScreen() {
           </div>
         </section>
 
-        {guest.status !== 'paid' && arka.status !== 'expired' ? <section className="mt-3 rounded-[1.25rem] border border-[#ead28c] bg-[#fff8e7] p-4" aria-live="polite"><p className="text-sm font-black text-[#5f4100]">3% NIM cashback planned</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">Cashback is not active yet. Arka will enable it after the reward payout flow is funded and verifiable.</p></section> : null}
+        {guest.status !== 'paid' && arka.status !== 'expired' ? <section className="mt-3 rounded-[1.25rem] border border-[#ead28c] bg-[#fff8e7] p-4" aria-live="polite"><p className="text-sm font-black text-[#5f4100]">3% NIM cashback active</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">Pay with NIM to unlock {formatNim(cashbackPreview.amountNim)}. The host sends it back in a separate Nimiq Pay confirmation.</p></section> : null}
 
         <section className="mt-3 rounded-[1.25rem] border border-[#e5d6c1] bg-white/92 p-4 shadow-[0_8px_20px_rgba(50,35,10,0.04)]" aria-labelledby="guest-members-title">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -95,7 +133,7 @@ export function GuestArkaViewScreen() {
                     {member.status === 'paid' ? <NimiqCheckmarkSmall size={11} /> : <Clock3 size={10} />}
                   </span>
                 </span>
-                <span className="sr-only">{member.displayName}</span>
+                <span className="sr-only">{formatPublicIdentity(member.displayName, member.walletAddress)}</span>
               </div>
             ))}
           </div>
@@ -112,17 +150,25 @@ export function GuestArkaViewScreen() {
           <Button type="button" disabled>
             <Clock3 size={19} /> Payment deadline passed
           </Button>
+        ) : sponsorSelectionPending ? (
+          <Button type="button" disabled>
+            <Clock3 size={19} /> Waiting for treating selection
+          </Button>
         ) : guest.status === 'paid' ? (
           <ButtonLink variant="secondary" to={`/arka/${arka.id}/payment-success`}>
             <ListChecks size={19} /> View receipt
           </ButtonLink>
+        ) : !guestHasAmountDue ? (
+          <Button type="button" variant="secondary" disabled>
+            <ShieldCheck size={19} /> No payment due from you
+          </Button>
         ) : (
           <div className="grid grid-cols-[0.78fr_1.22fr] gap-2">
             <Button variant="ghost" type="button" onClick={() => setDetailsOpen(true)} className="px-3 text-sm shadow-none">
               <ListChecks size={18} /> View details
             </Button>
             <ButtonLink to={`/arka/${arka.id}/pay`} className="px-3 shadow-none">
-              <NimiqTransfer size={19} /> Review payment
+              <NimiqTransfer size={19} /> Pay with NIM
             </ButtonLink>
           </div>
         )}
@@ -132,6 +178,42 @@ export function GuestArkaViewScreen() {
         <div className="rounded-2xl border border-[#eadcc8] bg-white p-4"><p className="text-sm font-semibold text-arka-muted">Your share</p><p className="mt-1 text-3xl font-black tracking-[-0.03em]">{formatUsd(guest.amountDueFiat)}</p><p className="mt-1 text-sm font-bold text-[#8d6200]">~ {formatNim(guest.amountDueNim)}</p></div>
         <div className="mt-3 grid grid-cols-2 gap-3"><div className="rounded-2xl border border-[#eadcc8] bg-white p-4"><p className="text-xs font-bold text-arka-muted">Total Arka</p><p className="mt-2 text-xl font-black">{formatUsd(arka.totalFiat)}</p></div><div className="rounded-2xl border border-[#eadcc8] bg-white p-4"><p className="text-xs font-bold text-arka-muted">Members</p><p className="mt-2 text-xl font-black">{arka.members.length}</p></div></div>
         <div className="mt-3 rounded-2xl border border-[#eadcc8] bg-white p-4"><p className="text-sm font-black">Split equally</p><p className="mt-1 text-sm font-semibold text-arka-muted">{progress.paidMemberCount} of {progress.memberCount} members have paid.</p></div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sponsorConsentOpen}
+        onClose={() => undefined}
+        dismissible={false}
+        eyebrow="Group approval"
+        title={`${getHostName(arka)} wants to activate Who's treating?`}
+      >
+        <div className="rounded-2xl border border-[#ead28c] bg-[#fff8e7] p-4">
+          <span className="grid size-12 place-items-center rounded-2xl bg-[#f7c842] text-[#3d2a00]"><Gift size={23} /></span>
+          <p className="mt-4 text-base font-black text-[#111b25]">Do you agree to be included?</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-arka-muted">
+            If the wheel selects you, you will cover the full {formatUsd(arka.totalFiat)} Arka. You will still review and confirm the payment yourself in Nimiq Pay.
+          </p>
+        </div>
+        {sponsorResponseError ? <p className="mt-3 text-sm font-semibold text-arka-error" role="alert">{sponsorResponseError}</p> : null}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={Boolean(respondingToSponsor)}
+            onClick={() => void handleSponsorResponse(false)}
+          >
+            {respondingToSponsor === 'decline' ? <Loader2 className="animate-spin" size={18} /> : null}
+            Decline
+          </Button>
+          <Button
+            type="button"
+            disabled={Boolean(respondingToSponsor)}
+            onClick={() => void handleSponsorResponse(true)}
+          >
+            {respondingToSponsor === 'accept' ? <Loader2 className="animate-spin" size={18} /> : <Gift size={18} />}
+            Accept
+          </Button>
+        </div>
       </BottomSheet>
     </MobileScreen>
   )

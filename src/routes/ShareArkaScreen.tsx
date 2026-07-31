@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ShareQrCard } from '../components/arka/ShareQrCard'
 import { MobileScreen } from '../components/ui/MobileScreen'
+import { useSharedArkaRefresh } from '../hooks/useSharedArkaRefresh'
 import { useArkaStore } from '../store/arkaStore'
 import { getHostName } from './routeUtils'
 
@@ -10,6 +11,13 @@ export function ShareArkaScreen() {
   const { arkaId } = useParams()
   const [searchParams] = useSearchParams()
   const arka = useArkaStore((state) => state.getArka(arkaId))
+  const refreshSharedArka = useArkaStore((state) => state.refreshSharedArka)
+
+  useSharedArkaRefresh({
+    arkaId,
+    enabled: Boolean(arka?.invite.publicToken),
+    refresh: refreshSharedArka,
+  })
 
   if (!arka) return <Navigate to="/error/arka-not-found" replace />
   const returnTo = searchParams.get('return') === 'guest'

@@ -1,7 +1,9 @@
 import type { Arka, ArkaMember } from '../../types/arka'
+import { formatPublicIdentity } from './formatWalletAddress'
 
 export type SharedContact = {
   id: string
+  avatarSeed: string
   name: string
   arkaCount: number
   lastArkaName: string
@@ -30,6 +32,7 @@ export function getSharedContacts(
   const contacts = new Map<string, ContactAccumulator>()
 
   for (const arka of arkas) {
+    if (arka.metadata?.isDemo) continue
     for (const member of arka.members) {
       const memberWalletAddress = normalizedWalletAddress(member.walletAddress)
       const isCurrentUser = (
@@ -46,7 +49,8 @@ export function getSharedContacts(
       if (!existing) {
         contacts.set(id, {
           id,
-          name: member.displayName || 'Guest',
+          avatarSeed: member.walletAddress ?? member.userId,
+          name: formatPublicIdentity(member.displayName, member.walletAddress),
           arkaCount: 1,
           lastArkaName: arka.name,
           lastSharedAt: sharedAt,
@@ -63,7 +67,8 @@ export function getSharedContacts(
       }
 
       if (Date.parse(sharedAt) > Date.parse(existing.lastSharedAt)) {
-        existing.name = member.displayName || existing.name
+        existing.avatarSeed = member.walletAddress ?? member.userId
+        existing.name = formatPublicIdentity(member.displayName, member.walletAddress)
         existing.lastArkaName = arka.name
         existing.lastSharedAt = sharedAt
       }
@@ -72,6 +77,7 @@ export function getSharedContacts(
 
   return [...contacts.values()].map((contact) => ({
     id: contact.id,
+    avatarSeed: contact.avatarSeed,
     name: contact.name,
     arkaCount: contact.arkaCount,
     lastArkaName: contact.lastArkaName,

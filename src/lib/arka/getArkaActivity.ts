@@ -1,8 +1,9 @@
 import type { Arka } from '../../types/arka'
+import { formatPublicIdentity } from './formatWalletAddress'
 
 export type ArkaActivityEvent = {
   id: string
-  kind: 'paid' | 'partial' | 'ready' | 'completed' | 'created' | 'shared' | 'sponsor'
+  kind: 'paid' | 'partial' | 'ready' | 'completed' | 'created' | 'shared' | 'joined' | 'sponsor' | 'sponsor-request' | 'sponsor-response'
   title: string
   detail: string
   occurredAt: string
@@ -25,7 +26,7 @@ export function getArkaActivity(arka: Arka): ArkaActivityEvent[] {
     events.push({
       id: `${arka.id}:shared`,
       kind: 'shared',
-      title: `${host.displayName} shared this Arka`,
+      title: `${formatPublicIdentity(host.displayName, host.walletAddress)} shared this Arka`,
       detail: 'The group invite is ready to join.',
       occurredAt: arka.invite.createdAt,
       memberId: host.id,
@@ -33,12 +34,23 @@ export function getArkaActivity(arka: Arka): ArkaActivityEvent[] {
   }
 
   for (const member of arka.members) {
+    if (member.role === 'guest' && member.joinedAt) {
+      events.push({
+        id: `${arka.id}:${member.id}:joined`,
+        kind: 'joined',
+        title: `${formatPublicIdentity(member.displayName, member.walletAddress)} joined`,
+        detail: `They are now part of ${arka.name}.`,
+        occurredAt: member.joinedAt,
+        memberId: member.id,
+      })
+    }
+
     const isTreating = arka.splitMethod === 'sponsor' && member.amountDueFiat >= arka.totalFiat - 0.01
     if (member.status === 'paid') {
       events.push({
         id: `${arka.id}:${member.id}:paid`,
         kind: isTreating ? 'sponsor' : 'paid',
-        title: isTreating ? `${member.displayName} is treating this Arka` : `${member.displayName} paid their share`,
+        title: isTreating ? `${formatPublicIdentity(member.displayName, member.walletAddress)} is treating this Arka` : `${formatPublicIdentity(member.displayName, member.walletAddress)} paid their share`,
         detail: isTreating ? 'They were selected to cover the group payment.' : 'Their contribution is confirmed.',
         occurredAt: member.paidAt ?? arka.updatedAt,
         memberId: member.id,
@@ -47,9 +59,35 @@ export function getArkaActivity(arka: Arka): ArkaActivityEvent[] {
       events.push({
         id: `${arka.id}:${member.id}:partial`,
         kind: 'partial',
-        title: `${member.displayName} made a partial payment`,
+        title: `${formatPublicIdentity(member.displayName, member.walletAddress)} made a partial payment`,
         detail: 'There is still an amount remaining.',
         occurredAt: member.paidAt ?? arka.updatedAt,
+        memberId: member.id,
+      })
+    }
+  }
+
+  if (arka.sponsorModeRequest) {
+    events.push({
+      id: `${arka.id}:${arka.sponsorModeRequest.id}:requested`,
+      kind: 'sponsor-request',
+      title: `Who's treating? approval requested`,
+      detail: 'Everyone must opt in before the wheel can choose who covers the Arka.',
+      occurredAt: arka.sponsorModeRequest.requestedAt,
+      memberId: arka.sponsorModeRequest.requestedByMemberId,
+    })
+
+    for (const member of arka.members) {
+      const response = arka.sponsorModeRequest.responses[member.id]
+      if (!response?.respondedAt || member.id === arka.sponsorModeRequest.requestedByMemberId) continue
+      events.push({
+        id: `${arka.id}:${arka.sponsorModeRequest.id}:${member.id}:${response.status}`,
+        kind: 'sponsor-response',
+        title: `${formatPublicIdentity(member.displayName, member.walletAddress)} ${response.status}`,
+        detail: response.status === 'accepted'
+          ? 'They agreed to be included in the treating wheel.'
+          : 'The treating wheel will stay paused.',
+        occurredAt: response.respondedAt,
         memberId: member.id,
       })
     }
