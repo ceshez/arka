@@ -2,7 +2,7 @@
 
 Arka turns group payments into one simple flow: create a shared tab, invite friends by QR or join code, collect NIM contributions, and settle the final payment through Nimiq Pay.
 
-- Live app: [arka-omega.vercel.app](https://arka-omega.vercel.app)
+- Live app: [arka-omega.vercel.app](arka-nimiq.vercel.app)
 ## What Arka solves
 
 Splitting a group expense usually means juggling messages, calculations, payment reminders, and a final merchant payment. Arka keeps that journey in one mobile-first shared space. It is designed for friends, families, travel groups, dinners, gifts, and small events.
