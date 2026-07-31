@@ -8,7 +8,7 @@ export function ScreenContainer({ children, className }: { children: ReactNode; 
   return (
     <motion.div
       className={cn(
-        'arka-screen-container relative z-10 flex min-w-0 flex-1 flex-col gap-5 px-5 pb-5 pt-[var(--arka-content-top)]',
+        'arka-screen-container relative z-10 flex min-w-0 flex-1 flex-col gap-5 px-5 pb-5 pt-[calc(var(--arka-content-top)+var(--arka-safe-top))]',
         className,
       )}
       initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}

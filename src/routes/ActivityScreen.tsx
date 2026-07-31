@@ -1,6 +1,6 @@
 import { Banknote, BellRing, CheckCircle2, ChevronDown, CirclePlus, Clock3, CreditCard, Crown, MessageCircle, Send, Sparkles, UserPlus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { ArkaHeader } from '../components/arka/ArkaHeader'
+import { HomeArkasHeader } from '../components/arka/HomeArkasHeader'
 import { MemberIdenticon } from '../components/arka/MemberIdenticon'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Card } from '../components/ui/Card'
@@ -28,9 +28,9 @@ export function ActivityScreen() {
   return (
     <MobileScreen>
       <ScreenContainer>
-        <ArkaHeader title="Activity" subtitle="What is happening in your Arkas" backTo="/" />
+        <HomeArkasHeader title="Activity" subtitle="What is happening in your Arkas" />
 
-        <Card className="bg-[#fff8e7]">
+        <Card className="bg-[#fff8e7]" data-tour="activity-history">
           <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-arka-gold-dark">Live summary</p><p className="mt-1 text-4xl font-black tracking-[-0.03em]">{arkas.filter((arka) => arka.status === 'collecting').length} collecting</p></div>{unreadCount > 0 ? <span className="rounded-full bg-[#c7362f] px-2.5 py-1 text-xs font-black text-white">{unreadCount} new</span> : null}</div>
           <p className="mt-2 text-sm font-semibold text-arka-muted">{formatUsd(totalCollected)} moved so far · {formatNim(totalTrackedNim)} tracked</p>
         </Card>

@@ -6,9 +6,28 @@ export function formatUsd(value: number) {
   }).format(value)
 }
 
+export function normalizeUsdInput(value: string) {
+  const normalized = value.replaceAll(',', '.').replace(/[^\d.]/g, '')
+  const [whole = '', ...fractionParts] = normalized.split('.')
+  const fraction = fractionParts.join('').slice(0, 2)
+  const wholeWithoutExtraZeros = whole.replace(/^0+(?=\d)/, '')
+  return normalized.includes('.')
+    ? `${wholeWithoutExtraZeros || '0'}.${fraction}`
+    : wholeWithoutExtraZeros
+}
+
 export function formatNim(value: number) {
   return `${new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 5,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(value)} NIM`
+}
+
+export function formatNimEstimate(value: number) {
+  return `${new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
   }).format(value)} NIM`
 }
 

@@ -27,10 +27,11 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: 'arka-profile',
-      version: 1,
+      version: 2,
       migrate: (persistedState) => ({
         ...(persistedState as Pick<ProfileStore, 'displayName' | 'contactNicknames'>),
-        displayName: '',
+        displayName: (persistedState as Partial<ProfileStore>)?.displayName?.trim() ?? '',
+        contactNicknames: (persistedState as Partial<ProfileStore>)?.contactNicknames ?? {},
       }),
     },
   ),

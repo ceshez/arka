@@ -9,6 +9,7 @@ export function BottomSheet({
   onClose,
   children,
   dismissible = true,
+  dataTour,
 }: {
   open: boolean
   title: string
@@ -16,6 +17,7 @@ export function BottomSheet({
   onClose: () => void
   children: ReactNode
   dismissible?: boolean
+  dataTour?: string
 }) {
   const titleId = useId()
 
@@ -45,6 +47,7 @@ export function BottomSheet({
         >
           <motion.section
             role="dialog"
+            data-tour={dataTour}
             aria-modal="true"
             aria-labelledby={titleId}
             className="max-h-[90dvh] w-full max-w-[430px] overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-[2rem] bg-arka-bg px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-20px_60px_rgba(0,0,0,0.2)]"

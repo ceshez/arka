@@ -5,6 +5,7 @@ import { HomeArkasHeader } from '../components/arka/HomeArkasHeader'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { MobileScreen } from '../components/ui/MobileScreen'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
+import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { useArkaStore } from '../store/arkaStore'
 import { useWalletStore } from '../store/walletStore'
@@ -39,17 +40,29 @@ function getStatusPresentation(arka: ArkaSummary) {
 }
 
 export function CompletedArkasHistoryScreen() {
-  const recentArkas = useArkaStore((state) => state.recentArkas)
   const arkas = useArkaStore((state) => state.arkas)
   const guestMemberIdsByArka = useArkaStore((state) => state.guestMemberIdsByArka)
   const remoteHostSecrets = useArkaStore((state) => state.remoteHostSecrets)
   const walletAddress = useWalletStore((state) => state.wallet?.address)
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('all')
-  const totalMoved = recentArkas.reduce((total, arka) => total + arka.collectedFiat, 0)
-  const totalNimMoved = recentArkas.reduce((total, arka) => total + arka.collectedNim, 0)
-  const completedCount = recentArkas.filter((arka) => arka.status === 'completed').length
-  const activeCount = recentArkas.filter((arka) => getHistoryBucket(arka.status) === 'active').length
-  const filteredArkas = recentArkas.filter((arka) => activeFilter === 'all' || getHistoryBucket(arka.status) === activeFilter)
+  const liveArkas: ArkaSummary[] = arkas.map((arka) => {
+    const progress = calculateArkaProgress(arka)
+    return {
+      id: arka.id, name: arka.name, status: arka.status, category: arka.metadata?.category ?? 'custom',
+      totalFiat: arka.totalFiat, totalNimEstimate: arka.totalNimEstimate,
+      collectedFiat: progress.collectedFiat, collectedNim: progress.collectedNim,
+      memberCount: progress.memberCount, paidMemberCount: progress.paidMemberCount,
+      selectedAsset: arka.selectedAsset, createdAt: arka.createdAt, completedAt: arka.completedAt,
+    }
+  })
+  const totalConfirmed = liveArkas.reduce((total, arka) => total + arka.collectedFiat, 0)
+  const totalConfirmedNim = liveArkas.reduce((total, arka) => total + arka.collectedNim, 0)
+  const recentArkas = liveArkas
+  const totalMoved = totalConfirmed
+  const totalNimMoved = totalConfirmedNim
+  const completedCount = liveArkas.filter((arka) => arka.status === 'completed').length
+  const activeCount = liveArkas.filter((arka) => getHistoryBucket(arka.status) === 'active').length
+  const filteredArkas = liveArkas.filter((arka) => activeFilter === 'all' || getHistoryBucket(arka.status) === activeFilter)
 
   return (
     <MobileScreen>
@@ -62,6 +75,7 @@ export function CompletedArkasHistoryScreen() {
           className="relative overflow-hidden rounded-xl bg-[#111214] bg-cover bg-right-bottom bg-no-repeat p-5 text-white shadow-[0_8px_20px_rgba(27,28,25,0.15)]"
           style={{ backgroundImage: "linear-gradient(90deg, rgba(11,12,13,0.96) 0%, rgba(11,12,13,0.72) 52%, rgba(11,12,13,0.08) 100%), url('/brand/arka-card-texture-cropped.png')" }}
           aria-label="Arka totals"
+          data-tour="arkas-history"
         >
           <div className="relative flex items-center gap-4">
             <span className="arka-hex grid size-14 shrink-0 place-items-center bg-[#f7c842] text-[#271900]"><TrendingUp size={25} /></span>

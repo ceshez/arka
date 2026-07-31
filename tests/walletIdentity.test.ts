@@ -40,6 +40,10 @@ test('masks wallet identities with the first four and last four characters', () 
   assert.equal(formatPublicIdentity(undefined, walletAddress), 'NQ12***YZ89')
 })
 
+test('shows a public username before the wallet fallback', () => {
+  assert.equal(formatPublicIdentity('Ana', walletAddress), 'Ana')
+})
+
 test('creates a guest from the masked wallet identity without a handle', () => {
   const membership = buildArkaWithLocalGuest(makeArka(), '2026-07-26T01:00:00.000Z', {
     displayName: formatWalletAddress(walletAddress),

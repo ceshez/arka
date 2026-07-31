@@ -1,0 +1,17 @@
+[functions.activate-shared-member]
+verify_jwt = false
+
+[functions.verify-shared-wallet]
+verify_jwt = false
+
+[functions.verify-contribution]
+verify_jwt = false
+
+[functions.prepare-settlement]
+verify_jwt = false
+
+[functions.verify-settlement]
+verify_jwt = false
+
+[functions.request-refund]
+verify_jwt = false

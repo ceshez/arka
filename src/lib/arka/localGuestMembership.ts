@@ -30,6 +30,7 @@ function createLocalGuest(arka: Arka, joinedAt: string, identity: LocalGuestIden
     amountPaidNim: 0,
     amountPaidUsdt: 0,
     status: 'joined',
+    activationStatus: arka.fundingMode === 'shared-wallet' ? 'pending' : undefined,
     joinedAt,
   }
 }

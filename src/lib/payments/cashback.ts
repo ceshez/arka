@@ -33,6 +33,52 @@ export function findConfirmedCashback(payments: Payment[], arkaId: string, membe
   ))
 }
 
+export function getConfirmedCashbackSummary(
+  arkas: Arka[],
+  payments: Payment[],
+  walletAddress?: string,
+) {
+  const normalizedWallet = walletAddress?.replace(/\s+/g, '').toUpperCase()
+  if (!normalizedWallet) return { amountNim: 0, rewardCount: 0 }
+
+  const confirmedRewardKeys = new Set<string>()
+  let amountNim = 0
+
+  arkas.forEach((arka) => {
+    arka.members.forEach((member) => {
+      const memberWallet = member.walletAddress?.replace(/\s+/g, '').toUpperCase()
+      const confirmedAmount = member.cashbackEarnedNim ?? 0
+      if (memberWallet !== normalizedWallet || confirmedAmount <= 0 || !member.cashbackPaidAt) return
+
+      confirmedRewardKeys.add(`${arka.id}:${member.id}`)
+      amountNim += confirmedAmount
+    })
+  })
+
+  payments.forEach((payment) => {
+    const recipientWallet = payment.recipientWalletAddress.replace(/\s+/g, '').toUpperCase()
+    const confirmedAmount = payment.amountNim ?? 0
+    if (
+      payment.type !== 'cashback-reward'
+      || payment.status !== 'confirmed'
+      || payment.asset !== 'NIM'
+      || recipientWallet !== normalizedWallet
+      || confirmedAmount <= 0
+    ) return
+
+    const rewardKey = `${payment.arkaId}:${payment.beneficiaryMemberId ?? payment.id}`
+    if (confirmedRewardKeys.has(rewardKey)) return
+
+    confirmedRewardKeys.add(rewardKey)
+    amountNim += confirmedAmount
+  })
+
+  return {
+    amountNim: Number(amountNim.toFixed(5)),
+    rewardCount: confirmedRewardKeys.size,
+  }
+}
+
 export function createCashbackPayment(arka: Arka, member: ArkaMember): Payment {
   if (!isCashbackEligible(member) || !member.walletAddress) {
     throw new Error('This member is not ready for a cashback payment.')

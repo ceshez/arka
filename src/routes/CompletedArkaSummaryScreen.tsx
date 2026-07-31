@@ -7,13 +7,14 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { SuccessCheck } from '../components/arka/SuccessCheck'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqArrowLeft, NimiqHexagon } from '../components/ui/NimiqIcon'
+import { NimiqHexagon } from '../components/ui/NimiqIcon'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
 import { formatDate, formatNim, formatUsd } from '../lib/arka/formatMoney'
@@ -56,15 +57,7 @@ export function CompletedArkaSummaryScreen() {
   return (
     <MobileScreen>
       <ScreenContainer>
-        <div className="flex min-h-12 items-center">
-          <Link
-            aria-label="Back to Arka"
-            className="grid size-12 place-items-center rounded-2xl border border-[#eadcc8] bg-white/90 text-arka-text shadow-[0_4px_8px_rgba(27,28,25,0.05)]"
-            to={returnTo}
-          >
-            <NimiqArrowLeft size={21} />
-          </Link>
-        </div>
+        <ArkaHeader title="Arka completed" subtitle={activeArka.name} backTo={returnTo} />
 
         <section className="space-y-5 text-center" aria-labelledby="completed-title">
           <div className="pt-2"><SuccessCheck label="Arka completed and verified" /></div>

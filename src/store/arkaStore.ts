@@ -4,10 +4,10 @@ import { analyticsContextForArka, trackAnalyticsEvent } from '../lib/analytics/a
 import { estimateNimFromFiat } from '../lib/arka/amounts'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { generateJoinCode } from '../lib/arka/generateJoinCode'
-import { withArkaDeadlineStatus } from '../lib/arka/deadline'
 import { getSettlementReadiness } from '../lib/arka/getSettlementReadiness'
 import { formatWalletAddress } from '../lib/arka/formatWalletAddress'
 import { buildArkaWithLocalGuest, findLocalGuest } from '../lib/arka/localGuestMembership'
+import { selectArkaById } from '../lib/arka/selectArkaById'
 import {
   applyEqualSplit,
   applyPercentageSplit,
@@ -22,22 +22,38 @@ import { getLockedContributionAsset } from '../lib/payments/contributionAsset'
 import { paymentErrors } from '../lib/payments/paymentErrors'
 import { getOrCreateInviteGuestKey } from '../lib/invites/inviteIdentity'
 import {
+  activateSharedFundMember,
   createSharedInvite,
   confirmSharedMemberPayment,
   joinSharedInvite,
   loadSharedInvite,
+  prepareSharedFundSettlement,
+  requestSharedFundRefund,
   respondToSponsorModeRequest,
   updateSharedInvite,
+  verifySharedFundContribution,
+  verifySharedFundSettlement,
+  verifySharedFundWallet,
 } from '../lib/invites/inviteRepository'
 import { getNimiqPaymentProvider } from '../lib/nimiq/nimiqClient'
+import { requestSharedWalletActivation } from '../lib/nimiq/sharedWalletActivation'
+import {
+  buildSharedWalletActivationMessage,
+  computeSharedWalletAddress,
+  getSharedWalletThreshold,
+  normalizeNimiqAddress,
+  verifySharedWalletActivation,
+} from '../lib/nimiq/sharedWalletCrypto'
 import { isWalletConnected, requireConnectedWallet } from '../lib/nimiq/walletAccess'
 import type { PaymentResult } from '../lib/nimiq/types'
 import { createRandomId } from '../lib/utils/createRandomId'
+import { useProfileStore } from './profileStore'
 import { useWalletStore } from './walletStore'
 import type { Arka, ArkaMember, ArkaSummary, AssetSymbol, CreateArkaInput, SplitMethodType } from '../types/arka'
 import type { Payment } from '../types/payment'
 
 const hostMemberId = 'member-host-local'
+const durableInviteExpiry = '2099-12-31T23:59:59.999Z'
 
 export function paymentAssetSelectionKey(arkaId: string, memberId: string) {
   return `${arkaId}:${memberId}`
@@ -63,8 +79,34 @@ function makeSummary(arka: Arka): ArkaSummary {
   }
 }
 
+function normalizeHostWalletFunding(arka: Arka): Arka {
+  return {
+    ...arka,
+    fundingMode: 'host-wallet',
+    sharedWalletAddress: undefined,
+    sharedWalletStatus: undefined,
+    recipientWalletAddress: undefined,
+    recipientLabel: undefined,
+    recipientLockedAt: undefined,
+    approvalThreshold: undefined,
+    membershipLockedAt: undefined,
+    fundEvents: undefined,
+    settlementProposal: undefined,
+    refundPlan: undefined,
+    members: arka.members.map((member) => ({
+      ...member,
+      activationStatus: undefined,
+      activationPublicKey: undefined,
+      activationSignature: undefined,
+      activationMessage: undefined,
+      activatedAt: undefined,
+    })),
+  }
+}
+
 function upsertArka(arkas: Arka[], arka: Arka) {
-  return [arka, ...arkas.filter((item) => item.id !== arka.id)]
+  const normalizedArka = normalizeHostWalletFunding(arka)
+  return [normalizedArka, ...arkas.filter((item) => item.id !== normalizedArka.id)]
 }
 
 function updateArkaStatus(arka: Arka): Arka {
@@ -102,7 +144,12 @@ export type ArkaStore = {
   payments: Payment[]
   activePayment: Payment | null
   paymentAssetSelections: Record<string, AssetSymbol>
-  pendingSharedPaymentSyncs: Record<string, { reference: string; asset: AssetSymbol }>
+  pendingSharedPaymentSyncs: Record<string, {
+    reference: string
+    asset: AssetSymbol
+    memberId?: string
+    transactionHash?: string
+  }>
   remoteHostSecrets: Record<string, string>
   createArka: (input: CreateArkaInput) => Promise<Arka>
   getArka: (arkaId?: string) => Arka | undefined
@@ -111,6 +158,14 @@ export type ArkaStore = {
   joinArka: (reference: string) => Promise<Arka | null>
   refreshSharedArka: (arkaId: string) => Promise<Arka | null>
   syncSharedArka: (arkaId: string) => Promise<void>
+  activateSharedWalletMember: (arkaId: string, memberId: string) => Promise<Arka>
+  verifySharedWallet: (arkaId: string, sharedWalletAddress: string) => Promise<Arka>
+  prepareSharedSettlement: (
+    arkaId: string,
+    recipient: { recipientWalletAddress: string; recipientLabel?: string },
+  ) => Promise<Arka>
+  checkSharedSettlement: (arkaId: string) => Promise<Arka>
+  requestSharedRefund: (arkaId: string) => Promise<Arka>
   respondToSponsorMode: (arkaId: string, accepted: boolean) => Promise<Arka>
   simulateGuestPayment: (arkaId: string, memberId: string, asset: AssetSymbol) => Promise<Payment>
   simulateHostSettlement: (arkaId: string, asset: AssetSymbol) => Promise<Payment>
@@ -122,6 +177,7 @@ export type ArkaStore = {
   updateArkaSplitMethod: (arkaId: string, splitMethod: SplitMethodType) => void
   updateArkaCustomSplit: (arkaId: string, percentages: number[]) => void
   updateArkaSponsor: (arkaId: string, sponsorMemberId: string) => void
+  updateCurrentWalletDisplayName: (walletAddress: string, displayName: string) => Promise<void>
   updateSettlementDetails: (arkaId: string, details: { merchantWalletAddress: string; merchantName?: string; note?: string }) => void
 }
 
@@ -144,14 +200,19 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     const code = generateJoinCode()
     const id = `arka-${code.toLowerCase()}`
     const hostShareFiat = input.totalFiat
-    const totalNimEstimate = Number((input.totalFiat / (input.nimUsdPrice || 0.00052)).toFixed(5))
+    const totalNimEstimate = input.totalNim && input.totalNim > 0
+      ? Number(input.totalNim.toFixed(5))
+      : Number((input.totalFiat / (input.nimUsdPrice || 0.00052)).toFixed(5))
     const hostShareNim = estimateNimFromFiat(hostShareFiat, input.totalFiat, totalNimEstimate)
+    const fundingMode = 'host-wallet' as const
+    const profileName = useProfileStore.getState().displayName.trim()
+    const inviteExpiry = input.expiresAt ?? durableInviteExpiry
 
     const host: ArkaMember = {
       id: hostMemberId,
       userId: 'user-host-local',
       arkaId: id,
-      displayName: formatWalletAddress(connectedWallet.address),
+      displayName: profileName || formatWalletAddress(connectedWallet.address),
       role: 'host',
       walletAddress: connectedWallet.address,
       amountDueFiat: hostShareFiat,
@@ -172,6 +233,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       type: input.type,
       status: 'collecting',
       hostId: host.userId,
+      fundingMode,
       hostWalletAddress: connectedWallet.address,
       currency: 'USD',
       totalFiat: input.totalFiat,
@@ -185,12 +247,12 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
         code,
         qrValue: `arka://join/${code}`,
         inviteLink: `https://arka.app/join/${code}`,
-        expiresAt: input.expiresAt,
+        expiresAt: inviteExpiry,
         createdAt: now,
       },
       createdAt: now,
       updatedAt: now,
-      expiresAt: input.expiresAt,
+      expiresAt: inviteExpiry,
       metadata: {
         category: input.category,
         isDemo: false,
@@ -198,7 +260,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     }
 
     const sharedInvite = await createSharedInvite(arka)
-    const sharedArka = sharedInvite.arka
+    const sharedArka = normalizeHostWalletFunding(sharedInvite.arka)
 
     set((state) => ({
       arkas: upsertArka(state.arkas, sharedArka),
@@ -216,8 +278,8 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
 
   getArka(arkaId) {
     if (!isWalletConnected(useWalletStore.getState().wallet)) return undefined
-    const arka = get().arkas.find((item) => item.id === (arkaId ?? get().currentArkaId))
-    return arka ? withArkaDeadlineStatus(arka) : undefined
+    const state = get()
+    return selectArkaById(state.arkas, arkaId, state.currentArkaId)
   },
 
   findArkaByCode(code) {
@@ -225,7 +287,6 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     const reference = code?.trim()
     const normalized = reference?.toUpperCase()
     return get().arkas
-      .map((arka) => withArkaDeadlineStatus(arka))
       .find((arka) => (
         (arka.code === normalized || arka.invite.publicToken === reference?.toLowerCase())
         && (arka.status === 'open' || arka.status === 'collecting')
@@ -253,27 +314,29 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     const connectedWallet = requireConnectedWallet(useWalletStore.getState().wallet)
     const arka = get().findArkaByCode(reference) ?? await get().loadArkaInvite(reference)
     if (!arka) return null
+    const profileName = useProfileStore.getState().displayName.trim()
 
     if (arka.invite.publicToken) {
       const joined = await joinSharedInvite(reference, {
         guestKey: getOrCreateInviteGuestKey(),
-        displayName: formatWalletAddress(connectedWallet.address),
+        displayName: profileName || formatWalletAddress(connectedWallet.address),
         walletAddress: connectedWallet.isDemo ? undefined : connectedWallet.address,
       })
+      const joinedArka = normalizeHostWalletFunding(joined.arka)
 
       set((state) => ({
-        arkas: upsertArka(state.arkas, joined.arka),
-        currentArkaId: joined.arka.id,
+        arkas: upsertArka(state.arkas, joinedArka),
+        currentArkaId: joinedArka.id,
         currentGuestMemberId: joined.memberId,
         guestMemberIdsByArka: {
           ...state.guestMemberIdsByArka,
-          [joined.arka.id]: joined.memberId,
+          [joinedArka.id]: joined.memberId,
         },
-        recentArkas: state.recentArkas.some((item) => item.id === joined.arka.id)
-          ? state.recentArkas.map((item) => item.id === joined.arka.id ? makeSummary(joined.arka) : item)
-          : [makeSummary(joined.arka), ...state.recentArkas],
+        recentArkas: state.recentArkas.some((item) => item.id === joinedArka.id)
+          ? state.recentArkas.map((item) => item.id === joinedArka.id ? makeSummary(joinedArka) : item)
+          : [makeSummary(joinedArka), ...state.recentArkas],
       }))
-      return joined.arka
+      return joinedArka
     }
 
     const existingGuest = findLocalGuest(arka)
@@ -291,7 +354,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     }
 
     const membership = buildArkaWithLocalGuest(arka, new Date().toISOString(), {
-      displayName: formatWalletAddress(connectedWallet.address),
+      displayName: profileName || formatWalletAddress(connectedWallet.address),
       walletAddress: connectedWallet.isDemo ? undefined : connectedWallet.address,
     })
     const joinedArka = updateArkaStatus(membership.arka)
@@ -320,11 +383,25 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     const pendingPayment = get().pendingSharedPaymentSyncs[arkaId]
     if (pendingPayment) {
       try {
-        const confirmed = await confirmSharedMemberPayment({
-          reference: pendingPayment.reference,
-          guestKey: getOrCreateInviteGuestKey(),
-          asset: pendingPayment.asset,
-        })
+        const confirmed = pendingPayment.transactionHash && pendingPayment.memberId
+          ? {
+              arka: await verifySharedFundContribution({
+                reference: pendingPayment.reference,
+                guestKey: localArka.members.find((member) => member.id === pendingPayment.memberId)?.role === 'guest'
+                  ? getOrCreateInviteGuestKey()
+                  : undefined,
+                hostSecret: localArka.members.find((member) => member.id === pendingPayment.memberId)?.role === 'host'
+                  ? get().remoteHostSecrets[arkaId]
+                  : undefined,
+                memberId: pendingPayment.memberId,
+                transactionHash: pendingPayment.transactionHash,
+              }),
+            }
+          : await confirmSharedMemberPayment({
+              reference: pendingPayment.reference,
+              guestKey: getOrCreateInviteGuestKey(),
+              asset: pendingPayment.asset,
+            })
         set((state) => {
           const pendingSharedPaymentSyncs = { ...state.pendingSharedPaymentSyncs }
           delete pendingSharedPaymentSyncs[arkaId]
@@ -363,6 +440,138 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       arkas: upsertArka(state.arkas, syncedArka),
       recentArkas: state.recentArkas.map((item) => item.id === syncedArka.id ? makeSummary(syncedArka) : item),
     }))
+  },
+
+  async activateSharedWalletMember(arkaId, memberId) {
+    const arka = get().getArka(arkaId)
+    const member = arka?.members.find((candidate) => candidate.id === memberId)
+    const wallet = requireConnectedWallet(useWalletStore.getState().wallet)
+    if (!arka || !member || arka.fundingMode !== 'shared-wallet' || !arka.invite.publicToken) {
+      throw new Error('The shared fund activation could not be loaded.')
+    }
+    if (normalizeNimiqAddress(member.walletAddress) !== normalizeNimiqAddress(wallet.address)) {
+      throw new Error('Reconnect the wallet assigned to this participant.')
+    }
+    if (member.activationStatus === 'verified') return arka
+
+    const message = buildSharedWalletActivationMessage(arka, member.id)
+    const signed = await requestSharedWalletActivation(message, wallet.address)
+    if (signed.signer && normalizeNimiqAddress(signed.signer) !== normalizeNimiqAddress(wallet.address)) {
+      throw new Error('The selected signer does not match this Arka member.')
+    }
+    if (!verifySharedWalletActivation({
+      message,
+      walletAddress: wallet.address,
+      publicKey: signed.publicKey,
+      signature: signed.signature,
+    })) {
+      throw new Error('The wallet activation signature could not be verified.')
+    }
+
+    const updatedArka = await activateSharedFundMember({
+      reference: arka.invite.publicToken,
+      memberId: member.id,
+      guestKey: member.role === 'guest' ? getOrCreateInviteGuestKey() : undefined,
+      hostSecret: member.role === 'host' ? get().remoteHostSecrets[arka.id] : undefined,
+      walletAddress: wallet.address,
+      message,
+      publicKey: signed.publicKey,
+      signature: signed.signature,
+    })
+    set((state) => ({
+      arkas: upsertArka(state.arkas, updatedArka),
+      recentArkas: state.recentArkas.map((item) => (
+        item.id === updatedArka.id ? makeSummary(updatedArka) : item
+      )),
+    }))
+    return updatedArka
+  },
+
+  async verifySharedWallet(arkaId, sharedWalletAddress) {
+    const arka = get().getArka(arkaId)
+    const hostSecret = get().remoteHostSecrets[arkaId]
+    if (!arka?.invite.publicToken || !hostSecret || arka.fundingMode !== 'shared-wallet') {
+      throw new Error('Host authorization is required to verify the shared wallet.')
+    }
+    const publicKeys = arka.members.map((member) => member.activationPublicKey).filter(Boolean) as string[]
+    if (arka.members.length < 2 || arka.members.length > 16) {
+      throw new Error('A shared wallet needs between 2 and 16 current participants.')
+    }
+    if (publicKeys.length !== arka.members.length) {
+      throw new Error('Every participant must activate their wallet first.')
+    }
+    const expected = computeSharedWalletAddress(
+      publicKeys,
+      getSharedWalletThreshold(arka.members.length),
+    )
+    if (normalizeNimiqAddress(expected) !== normalizeNimiqAddress(sharedWalletAddress)) {
+      throw new Error('This address does not match the activated members.')
+    }
+    const updatedArka = await verifySharedFundWallet({
+      reference: arka.invite.publicToken,
+      hostSecret,
+      sharedWalletAddress: expected,
+    })
+    set((state) => ({
+      arkas: upsertArka(state.arkas, updatedArka),
+      recentArkas: state.recentArkas.map((item) => (
+        item.id === updatedArka.id ? makeSummary(updatedArka) : item
+      )),
+    }))
+    return updatedArka
+  },
+
+  async prepareSharedSettlement(arkaId, recipient) {
+    const arka = get().getArka(arkaId)
+    const hostSecret = get().remoteHostSecrets[arkaId]
+    if (!arka?.invite.publicToken || !hostSecret) throw new Error('Host authorization is required.')
+    const updatedArka = await prepareSharedFundSettlement({
+      reference: arka.invite.publicToken,
+      hostSecret,
+      recipientWalletAddress: recipient.recipientWalletAddress,
+      recipientLabel: recipient.recipientLabel,
+    })
+    set((state) => ({
+      arkas: upsertArka(state.arkas, updatedArka),
+      recentArkas: state.recentArkas.map((item) => (
+        item.id === updatedArka.id ? makeSummary(updatedArka) : item
+      )),
+    }))
+    return updatedArka
+  },
+
+  async checkSharedSettlement(arkaId) {
+    const arka = get().getArka(arkaId)
+    const hostSecret = get().remoteHostSecrets[arkaId]
+    if (!arka?.invite.publicToken || !hostSecret) throw new Error('Host authorization is required.')
+    const updatedArka = await verifySharedFundSettlement({
+      reference: arka.invite.publicToken,
+      hostSecret,
+    })
+    set((state) => ({
+      arkas: upsertArka(state.arkas, updatedArka),
+      recentArkas: state.recentArkas.map((item) => (
+        item.id === updatedArka.id ? makeSummary(updatedArka) : item
+      )),
+    }))
+    return updatedArka
+  },
+
+  async requestSharedRefund(arkaId) {
+    const arka = get().getArka(arkaId)
+    const hostSecret = get().remoteHostSecrets[arkaId]
+    if (!arka?.invite.publicToken || !hostSecret) throw new Error('Host authorization is required.')
+    const updatedArka = await requestSharedFundRefund({
+      reference: arka.invite.publicToken,
+      hostSecret,
+    })
+    set((state) => ({
+      arkas: upsertArka(state.arkas, updatedArka),
+      recentArkas: state.recentArkas.map((item) => (
+        item.id === updatedArka.id ? makeSummary(updatedArka) : item
+      )),
+    }))
+    return updatedArka
   },
 
   async respondToSponsorMode(arkaId, accepted) {
@@ -421,6 +630,14 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       throw new Error('Arka or member not found')
     }
 
+    const usesSharedFund = arka.fundingMode === 'shared-wallet'
+    if (usesSharedFund) {
+      if (asset !== 'NIM') throw new Error('Shared funds accept NIM only.')
+      if (arka.sharedWalletStatus !== 'verified' || !arka.sharedWalletAddress) {
+        throw new Error('The shared wallet must be verified before anyone contributes.')
+      }
+    }
+
     const lockedAsset = getLockedContributionAsset(arka)
     if (lockedAsset && lockedAsset !== asset) {
       throw new Error(`This Arka is already collecting ${lockedAsset}.`)
@@ -475,21 +692,51 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       throw error
     }
 
+    let verifiedSharedArka: Arka | undefined
+    let sharedVerificationPending = false
+    if (usesSharedFund && result.status === 'confirmed') {
+      if (!result.transactionHash || !arka.invite.publicToken) {
+        throw new Error('The confirmed contribution is missing its mainnet reference.')
+      }
+      try {
+        verifiedSharedArka = await verifySharedFundContribution({
+          reference: arka.invite.publicToken,
+          guestKey: member.role === 'guest' ? getOrCreateInviteGuestKey() : undefined,
+          hostSecret: member.role === 'host' ? get().remoteHostSecrets[arka.id] : undefined,
+          memberId: member.id,
+          transactionHash: result.transactionHash,
+        })
+      } catch {
+        sharedVerificationPending = true
+      }
+    }
+
     const submittedPayment: Payment = {
       ...awaitingPayment,
-      status: result.status === 'confirmed' ? 'confirmed' : result.status,
+      status: sharedVerificationPending
+        ? 'submitted'
+        : result.status === 'confirmed' ? 'confirmed' : result.status,
       transactionHash: result.transactionHash,
-      confirmedAt: result.confirmedAt,
+      confirmedAt: sharedVerificationPending ? undefined : result.confirmedAt,
       updatedAt: new Date().toISOString(),
-      error: result.errorCode ? paymentErrors[result.errorCode] : undefined,
+      error: sharedVerificationPending
+        ? undefined
+        : result.errorCode ? paymentErrors[result.errorCode] : undefined,
     }
 
     set((state) => {
       const shouldQueueSharedPayment = submittedPayment.status === 'confirmed'
         && member.role === 'guest'
         && Boolean(arka.invite.publicToken)
-      const updatedArkas = state.arkas.map((item) => {
-        if (item.id !== arkaId || submittedPayment.status !== 'confirmed') return item
+        && !usesSharedFund
+      const updatedArkas = verifiedSharedArka
+        ? upsertArka(state.arkas, verifiedSharedArka)
+        : state.arkas.map((item) => {
+        if (
+          item.id !== arkaId
+          || submittedPayment.status !== 'confirmed'
+          || usesSharedFund
+        ) return item
 
         const paidAt = submittedPayment.confirmedAt ?? new Date().toISOString()
         const updated = {
@@ -530,7 +777,17 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
         payments: [submittedPayment, ...state.payments],
         activePayment: submittedPayment,
         recentArkas: updatedArkas.map(makeSummary),
-        pendingSharedPaymentSyncs: shouldQueueSharedPayment
+        pendingSharedPaymentSyncs: sharedVerificationPending && arka.invite.publicToken
+          ? {
+              ...state.pendingSharedPaymentSyncs,
+              [arkaId]: {
+                reference: arka.invite.publicToken,
+                asset: 'NIM',
+                memberId: member.id,
+                transactionHash: result.transactionHash,
+              },
+            }
+          : shouldQueueSharedPayment
           ? {
               ...state.pendingSharedPaymentSyncs,
               [arkaId]: {
@@ -546,6 +803,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       submittedPayment.status === 'confirmed'
       && member.role === 'guest'
       && arka.invite.publicToken
+      && !usesSharedFund
     ) {
       try {
         const confirmed = await confirmSharedMemberPayment({
@@ -573,6 +831,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       && member.role === 'host'
       && arka.invite.publicToken
       && get().remoteHostSecrets[arkaId]
+      && !usesSharedFund
     ) {
       try {
         await get().syncSharedArka(arkaId)
@@ -582,15 +841,17 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       }
     }
 
-    const paymentEventName = submittedPayment.status === 'confirmed'
-      ? 'payment_confirmed'
-      : submittedPayment.status === 'cancelled'
-        ? 'payment_cancelled'
-        : 'payment_failed'
-    void trackAnalyticsEvent(
-      paymentEventName,
-      analyticsContextForPayment(arka, submittedPayment, member.role),
-    )
+    if (submittedPayment.status !== 'submitted') {
+      const paymentEventName = submittedPayment.status === 'confirmed'
+        ? 'payment_confirmed'
+        : submittedPayment.status === 'cancelled'
+          ? 'payment_cancelled'
+          : 'payment_failed'
+      void trackAnalyticsEvent(
+        paymentEventName,
+        analyticsContextForPayment(arka, submittedPayment, member.role),
+      )
+    }
 
     const updatedArka = get().getArka(arkaId)
     if (submittedPayment.status === 'confirmed' && updatedArka?.status === 'ready-to-settle') {
@@ -608,8 +869,52 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     const member = arka?.members.find((candidate) => candidate.id === memberId)
     if (!arka || !member) throw new Error('Arka member not found.')
 
+    const recordConfirmedReward = async (confirmedPayment: Payment) => {
+      const confirmedAt = confirmedPayment.confirmedAt ?? new Date().toISOString()
+      const confirmedAmount = confirmedPayment.amountNim ?? 0
+
+      set((state) => {
+        const updatedArkas = state.arkas.map((item) => (
+          item.id === arkaId
+            ? {
+                ...item,
+                members: item.members.map((itemMember) => (
+                  itemMember.id === memberId
+                    ? {
+                        ...itemMember,
+                        cashbackEarnedNim: confirmedAmount,
+                        cashbackPaidAt: confirmedAt,
+                      }
+                    : itemMember
+                )),
+                updatedAt: confirmedAt,
+              }
+            : item
+        ))
+
+        return {
+          arkas: updatedArkas,
+          recentArkas: updatedArkas.map(makeSummary),
+        }
+      })
+
+      if (arka.invite.publicToken && get().remoteHostSecrets[arkaId]) {
+        try {
+          await get().syncSharedArka(arkaId)
+        } catch {
+          // The confirmed reward remains visible locally. The next shared
+          // Arka sync can publish it without replaying the Nimiq payment.
+        }
+      }
+    }
+
     const existing = findConfirmedCashback(get().payments, arkaId, memberId)
-    if (existing) return existing
+    if (existing) {
+      if (!member.cashbackPaidAt || (member.cashbackEarnedNim ?? 0) <= 0) {
+        await recordConfirmedReward(existing)
+      }
+      return existing
+    }
 
     const connectedWallet = useWalletStore.getState().wallet
     const connectedAddress = connectedWallet?.address.replace(/\s+/g, '').toUpperCase()
@@ -669,6 +974,10 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
       activePayment: payment,
       payments: [payment, ...state.payments],
     }))
+
+    if (payment.status === 'confirmed') {
+      await recordConfirmedReward(payment)
+    }
 
     void trackAnalyticsEvent(
       payment.status === 'confirmed' ? 'payment_confirmed' : payment.status === 'cancelled' ? 'payment_cancelled' : 'payment_failed',
@@ -812,6 +1121,7 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
         const nimRate = arka.totalFiat > 0 ? arka.totalNimEstimate / arka.totalFiat : 0.00052
         const totalNimEstimate = Number((totalFiat * nimRate).toFixed(2))
         const hasContributions = hasMemberContributions(arka.members)
+        if (arka.fundingMode === 'shared-wallet' && hasContributions) return arka
         let members = arka.members
 
         if (!hasContributions) {
@@ -961,6 +1271,74 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
     })
   },
 
+  async updateCurrentWalletDisplayName(walletAddress, rawDisplayName) {
+    const displayName = rawDisplayName.trim()
+    if (!displayName) return
+
+    const normalizedWallet = normalizeNimiqAddress(walletAddress)
+    const updatedArkas = get().arkas.map((arka) => {
+      const hasMatchingMember = arka.members.some((member) => (
+        member.walletAddress
+        && normalizeNimiqAddress(member.walletAddress) === normalizedWallet
+      ))
+      if (!hasMatchingMember) return arka
+
+      return normalizeHostWalletFunding({
+        ...arka,
+        members: arka.members.map((member) => (
+          member.walletAddress && normalizeNimiqAddress(member.walletAddress) === normalizedWallet
+            ? { ...member, displayName }
+            : member
+        )),
+        updatedAt: new Date().toISOString(),
+      })
+    })
+
+    set({
+      arkas: updatedArkas,
+      recentArkas: updatedArkas.map(makeSummary),
+    })
+
+    const syncResults = await Promise.allSettled(updatedArkas.map(async (arka) => {
+      const member = arka.members.find((candidate) => (
+        candidate.walletAddress
+        && normalizeNimiqAddress(candidate.walletAddress) === normalizedWallet
+      ))
+      if (!member || !arka.invite.publicToken) return
+
+      const hostSecret = get().remoteHostSecrets[arka.id]
+      if (member.role === 'host' && hostSecret) {
+        const syncedArka = normalizeHostWalletFunding(await updateSharedInvite(arka, hostSecret))
+        set((state) => ({
+          arkas: upsertArka(state.arkas, syncedArka),
+          recentArkas: state.recentArkas.map((item) => (
+            item.id === syncedArka.id ? makeSummary(syncedArka) : item
+          )),
+        }))
+        return
+      }
+
+      if (member.role === 'guest' && get().guestMemberIdsByArka[arka.id] === member.id) {
+        const joined = await joinSharedInvite(arka.invite.publicToken, {
+          guestKey: getOrCreateInviteGuestKey(),
+          displayName,
+          walletAddress,
+        })
+        const syncedArka = normalizeHostWalletFunding(joined.arka)
+        set((state) => ({
+          arkas: upsertArka(state.arkas, syncedArka),
+          recentArkas: state.recentArkas.map((item) => (
+            item.id === syncedArka.id ? makeSummary(syncedArka) : item
+          )),
+        }))
+      }
+    }))
+
+    if (syncResults.some((result) => result.status === 'rejected')) {
+      throw new Error('Your name was saved on this device, but some shared Arkas could not sync yet.')
+    }
+  },
+
   updateSettlementDetails(arkaId, details) {
     set((state) => {
       const updatedArkas = state.arkas.map((arka) => arka.id !== arkaId ? arka : {
@@ -974,10 +1352,12 @@ export const useArkaStore = create<ArkaStore>()(persist((set, get) => ({
   },
 }), {
   name: 'arka-app-state-v4',
-  version: 2,
+  version: 3,
   migrate: (persistedState) => {
     const state = persistedState as Partial<ArkaStore>
-    const arkas = (state.arkas ?? []).filter((arka) => !arka.metadata?.isDemo)
+    const arkas = (state.arkas ?? [])
+      .filter((arka) => !arka.metadata?.isDemo)
+      .map(normalizeHostWalletFunding)
     const demoIds = new Set(
       (state.arkas ?? []).filter((arka) => arka.metadata?.isDemo).map((arka) => arka.id),
     )

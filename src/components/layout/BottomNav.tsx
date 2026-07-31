@@ -52,6 +52,7 @@ export function BottomNav() {
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={item.to === '/profile' ? 'profile-nav' : undefined}
                 aria-current={active ? 'page' : undefined}
                 className={cn('arka-primary-nav__item flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-center transition active:scale-95', active ? 'bg-[#fff2ca] text-[#7d5700]' : 'text-[#77766f]')}
               >

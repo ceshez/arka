@@ -50,6 +50,11 @@ test('does not replace a completed status after the deadline', () => {
   assert.equal(withArkaDeadlineStatus(arka, Date.parse('2026-07-23T12:00:00.000Z')).status, 'completed')
 })
 
+test('keeps a funded Arka ready for assisted settlement after its contribution deadline', () => {
+  const arka = makeArka('2026-07-30T10:00:00.000Z', 'ready-to-settle')
+  assert.equal(withArkaDeadlineStatus(arka, Date.parse('2026-07-30T11:00:00.000Z')).status, 'ready-to-settle')
+})
+
 test('validates and parses a local deadline', () => {
   const parsed = parseLocalDeadline('2026-07-22T18:30')
   assert.ok(parsed)

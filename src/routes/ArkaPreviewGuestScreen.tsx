@@ -8,7 +8,8 @@ import {
   UserRound,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { MemberIdenticon } from '../components/arka/MemberIdenticon'
 import { ArkaBrandMark } from '../components/arka/ArkaBrandMark'
 import { BottomActionBar } from '../components/layout/BottomActionBar'
@@ -16,13 +17,14 @@ import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqArrowLeft, NimiqArrowRight, NimiqLockLocked } from '../components/ui/NimiqIcon'
+import { NimiqArrowRight, NimiqLockLocked } from '../components/ui/NimiqIcon'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
 import { buildArkaWithLocalGuest, findLocalGuest } from '../lib/arka/localGuestMembership'
 import { useArkaStore } from '../store/arkaStore'
+import { useProfileStore } from '../store/profileStore'
 import { useWalletStore } from '../store/walletStore'
 import type { SplitMethodType } from '../types/arka'
 import { getHostName } from './routeUtils'
@@ -44,6 +46,7 @@ export function ArkaPreviewGuestScreen() {
   const loadArkaInvite = useArkaStore((state) => state.loadArkaInvite)
   const joinArka = useArkaStore((state) => state.joinArka)
   const walletAddress = useWalletStore((state) => state.wallet?.address)
+  const publicUsername = useProfileStore((state) => state.displayName.trim())
   const [failedReference, setFailedReference] = useState('')
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
@@ -85,7 +88,7 @@ export function ArkaPreviewGuestScreen() {
   const existingGuest = arka.members.find((member) => member.id === currentGuestMemberId) ?? findLocalGuest(arka)
   const prospectiveMembership = !existingGuest
     ? buildArkaWithLocalGuest(arka, arka.updatedAt, {
-        displayName: walletAddress ? formatPublicIdentity(undefined, walletAddress) : undefined,
+        displayName: publicUsername || (walletAddress ? formatPublicIdentity(undefined, walletAddress) : undefined),
         walletAddress,
       })
     : undefined
@@ -114,19 +117,10 @@ export function ArkaPreviewGuestScreen() {
 
   return (
     <MobileScreen className="bg-[#fffaf5]" withBottomAction>
-      <ScreenContainer className="!flex-none gap-0 px-5 pb-[calc(9.25rem+var(--arka-safe-bottom))] pt-[var(--arka-content-top)]">
-        <header className="relative flex min-h-[82px] items-start pt-1">
-          <Link
-            className="absolute left-0 top-0 grid size-11 place-items-center rounded-xl border border-[#eadcc8] bg-white transition active:scale-[0.97]"
-            to="/join"
-            aria-label="Go back"
-          >
-            <NimiqArrowLeft size={21} />
-          </Link>
-          <div className="ml-14 pt-1"><h1 className="arka-page-title">Preview Arka</h1><p className="mt-1 text-sm font-semibold text-[#68727c]">See the details before you join.</p></div>
-        </header>
+      <ScreenContainer className="!flex-none gap-6 px-5 pb-[calc(9.25rem+var(--arka-safe-bottom))]">
+        <ArkaHeader title="Preview Arka" subtitle="See the details before you join." backTo="/join" />
 
-        <section className="mt-6" aria-labelledby="preview-arka-name">
+        <section aria-labelledby="preview-arka-name">
           <div className="flex items-center gap-4">
             <span className="grid size-[58px] shrink-0 place-items-center bg-[#fff7e3] text-[#d99300] [clip-path:var(--arka-vertical-hex-soft)]" aria-hidden="true">
               <CategoryIcon size={27} strokeWidth={1.8} />
@@ -147,7 +141,7 @@ export function ArkaPreviewGuestScreen() {
 
         {!existingGuest && walletAddress ? (
           <p className="mt-5 rounded-[1.4rem] border border-[#e6cf94] bg-[#fff8e7] p-4 text-sm font-semibold leading-5 text-[#5f4a18] shadow-[0_5px_12px_rgba(125,87,0,0.06)]">
-            You will join as <strong>{formatPublicIdentity(undefined, walletAddress)}</strong>. No handle is required.
+            You will join as <strong>{formatPublicIdentity(publicUsername, walletAddress)}</strong>. This public username will be visible to everyone in the Arka.
           </p>
         ) : null}
 

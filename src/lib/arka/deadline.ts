@@ -4,7 +4,6 @@ const activeDeadlineStatuses = new Set<Arka['status']>([
   'draft',
   'open',
   'collecting',
-  'ready-to-settle',
 ])
 
 export function createDefaultArkaDeadline(now = new Date()) {

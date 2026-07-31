@@ -9,17 +9,26 @@ export function createMemberPaymentRequest(
   asset: AssetSymbol,
 ): PaymentRequest {
   const remaining = getRemainingPaymentAmounts(member)
+  const usesSharedFund = arka.fundingMode === 'shared-wallet'
+  const recipientWalletAddress = usesSharedFund
+    ? arka.sharedWalletAddress
+    : arka.hostWalletAddress
+  if (!recipientWalletAddress) {
+    throw new Error(usesSharedFund
+      ? 'The shared wallet must be verified before contributing.'
+      : 'The host wallet is unavailable.')
+  }
 
   return {
     arkaId: arka.id,
     payerUserId: member.userId,
-    recipientWalletAddress: arka.hostWalletAddress ?? 'NQXX HOST WALLET',
-    recipientLabel: 'Host wallet',
+    recipientWalletAddress,
+    recipientLabel: usesSharedFund ? `Shared fund · ${arka.name}` : 'Host wallet',
     asset,
     amountFiat: remaining.amountFiat,
     amountNim: asset === 'NIM' ? remaining.amountNim : undefined,
     amountUsdt: asset === 'USDT' ? remaining.amountUsdt : undefined,
-    memo: `Arka ${arka.code}`,
+    memo: usesSharedFund ? `ARKA:${arka.id}:${member.id}` : `Arka ${arka.code}`,
     isDemo: arka.metadata?.isDemo,
   }
 }

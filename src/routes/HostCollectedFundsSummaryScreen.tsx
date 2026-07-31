@@ -1,23 +1,23 @@
 import { Check, CircleCheck, Clock3, LockKeyhole, PencilLine, UsersRound, X } from 'lucide-react'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { HoneycombProgress } from '../components/arka/HoneycombProgress'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { CashbackRewardsPanel } from '../components/arka/CashbackRewardsPanel'
+import { HoneycombProgress } from '../components/arka/HoneycombProgress'
 import { HostSplitMethodPanel } from '../components/arka/HostSplitMethodPanel'
 import { MemberStatusList } from '../components/arka/MemberStatusList'
-import { WalletStatus } from '../components/arka/WalletStatus'
 import { BottomActionBar } from '../components/layout/BottomActionBar'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { ArkaToast, type ToastNotice } from '../components/ui/ArkaToast'
-import { Badge } from '../components/ui/Badge'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqHexagon, NimiqQrCode, NimiqTransfer } from '../components/ui/NimiqIcon'
+import { NimiqQrCode, NimiqTransfer } from '../components/ui/NimiqIcon'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { getSharedContactId } from '../lib/arka/getSharedContacts'
 import { getSettlementReadiness } from '../lib/arka/getSettlementReadiness'
 import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
+import { getSharedWalletThreshold } from '../lib/nimiq/sharedWalletCrypto'
 import { useSharedArkaRefresh } from '../hooks/useSharedArkaRefresh'
 import { useArkaStore } from '../store/arkaStore'
 import { useProfileStore } from '../store/profileStore'
@@ -36,7 +36,8 @@ function joinedMemberLabel(member: ArkaMember, nicknames: Record<string, string>
 
 export function HostCollectedFundsSummaryScreen() {
   const { arkaId } = useParams()
-  const arka = useArkaStore((state) => state.getArka(arkaId))
+  const arkas = useArkaStore((state) => state.arkas)
+  const arka = arkas.find((candidate) => candidate.id === arkaId)
   const updateArkaName = useArkaStore((state) => state.updateArkaName)
   const updateArkaTotal = useArkaStore((state) => state.updateArkaTotal)
   const updateArkaSplitMethod = useArkaStore((state) => state.updateArkaSplitMethod)
@@ -61,7 +62,7 @@ export function HostCollectedFundsSummaryScreen() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     setToast({ ...notice, id: Date.now() })
     toastTimerRef.current = setTimeout(() => setToast(undefined), 4200)
-  }, [])
+  }, [setToast])
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -203,25 +204,17 @@ export function HostCollectedFundsSummaryScreen() {
     <MobileScreen className="host-dashboard-screen" withBottomAction={progress.isFullyPaid || showHostPaymentAction}>
       {toast ? <ArkaToast notice={toast} onDismiss={() => setToast(undefined)} /> : null}
       <ScreenContainer className="host-dashboard-shell gap-0">
-        <header className="host-dashboard-header">
-          <div className="host-dashboard-brand">
-            <p>Arka</p>
-            <NimiqHexagon size={25} aria-hidden="true" />
-            <Badge tone="gold" className="host-dashboard-role">Host</Badge>
-          </div>
-
-          <div className="host-dashboard-actions">
-            <ButtonLink
-              variant="secondary"
-              to={`/arka/${activeArka.id}/share`}
-              className="host-invite-button"
-            >
-              <NimiqQrCode size={18} />
-              <span>Share invite</span>
-            </ButtonLink>
-            <WalletStatus className="size-11" />
-          </div>
-        </header>
+        <ArkaHeader title="Your Arka" subtitle="Your shared payment" badge="Host" backTo="/" />
+        <div className="mt-3 flex justify-end">
+          <ButtonLink
+            variant="secondary"
+            to={`/arka/${activeArka.id}/share`}
+            className="host-invite-button"
+          >
+            <NimiqQrCode size={18} />
+            <span>Share invite</span>
+          </ButtonLink>
+        </div>
 
         <section className="host-dashboard-hero" aria-labelledby="host-arka-name">
           {editingHeroField === 'name' ? (
@@ -335,7 +328,13 @@ export function HostCollectedFundsSummaryScreen() {
 
             <p className="flex items-center justify-center gap-2 text-center text-xs font-bold leading-5 text-arka-muted">
               <NimiqTransfer size={17} aria-hidden="true" />
-              Collected by the host, settled with Nimiq Pay.
+              {activeArka.fundingMode === 'shared-wallet'
+                ? activeArka.sharedWalletStatus === 'verified'
+                  ? `Held in a verified shared wallet · ${activeArka.approvalThreshold} approvals to move funds.`
+                  : getSharedWalletThreshold(activeArka.members.length) > 0
+                    ? `${activeArka.members.length} joined · ${getSharedWalletThreshold(activeArka.members.length)} approvals required now.`
+                    : '1 joined · invite at least one more person.'
+                : 'Collected by the host, settled with Nimiq Pay.'}
             </p>
 
             <MemberStatusList members={activeArka.members} />
@@ -359,7 +358,9 @@ export function HostCollectedFundsSummaryScreen() {
             <ButtonLink to={`/arka/${activeArka.id}/settle`}>
               <NimiqTransfer size={18} />
               {settlementReadiness.asset
-                ? `Pay merchant with collected ${settlementReadiness.asset}`
+                ? activeArka.fundingMode === 'shared-wallet'
+                  ? `Prepare final ${settlementReadiness.asset} payment`
+                  : `Pay merchant with collected ${settlementReadiness.asset}`
                 : 'Review collected assets'}
             </ButtonLink>
           )}

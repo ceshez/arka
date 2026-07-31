@@ -1,20 +1,18 @@
 import { Clock3, Gift, ListChecks, Loader2, ShieldCheck, UsersRound } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { HoneycombProgress } from '../components/arka/HoneycombProgress'
 import { MemberIdenticon } from '../components/arka/MemberIdenticon'
-import { WalletStatus } from '../components/arka/WalletStatus'
 import { BottomActionBar } from '../components/layout/BottomActionBar'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
-import { Badge } from '../components/ui/Badge'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqCheckmarkSmall, NimiqHexagon, NimiqQrCode, NimiqTransfer } from '../components/ui/NimiqIcon'
+import { NimiqCheckmarkSmall, NimiqQrCode, NimiqTransfer } from '../components/ui/NimiqIcon'
 import { calculateArkaProgress } from '../lib/arka/calculateArkaProgress'
 import { formatNim, formatUsd } from '../lib/arka/formatMoney'
 import { formatPublicIdentity } from '../lib/arka/formatWalletAddress'
-import { calculateCashbackPreview } from '../lib/payments/cashback'
 import { useSharedArkaRefresh } from '../hooks/useSharedArkaRefresh'
 import { useArkaStore } from '../store/arkaStore'
 import { getGuestMember, getHostName } from './routeUtils'
@@ -56,7 +54,6 @@ export function GuestArkaViewScreen() {
   if (!guest) return <Navigate to="/join" replace />
 
   const progress = calculateArkaProgress(arka)
-  const cashbackPreview = calculateCashbackPreview(guest.amountDueFiat, guest.amountDueNim)
   const sponsorResponse = arka.sponsorModeRequest?.responses[guest.id]
   const sponsorConsentOpen = arka.splitMethod === 'sponsor'
     && Boolean(arka.sponsorModeRequest)
@@ -70,18 +67,10 @@ export function GuestArkaViewScreen() {
   return (
     <MobileScreen className="host-dashboard-screen" withBottomAction>
       <ScreenContainer className="host-dashboard-shell gap-0 pb-6">
-        <header className="host-dashboard-header">
-          <div className="host-dashboard-brand guest-dashboard-brand">
-            <p>Arka</p>
-            <NimiqHexagon size={24} aria-hidden="true" />
-            <Badge tone="gold" className="host-dashboard-role">Guest</Badge>
-          </div>
-
-          <div className="host-dashboard-actions">
-            <ButtonLink variant="secondary" to={`/arka/${arka.id}/share?return=guest`} className="host-invite-button"><NimiqQrCode size={18} /><span>View invite</span></ButtonLink>
-            <WalletStatus />
-          </div>
-        </header>
+        <ArkaHeader title="Your Arka" subtitle="Your group payment" badge="Guest" backTo="/" />
+        <div className="mt-3 flex justify-end">
+          <ButtonLink variant="secondary" to={`/arka/${arka.id}/share?return=guest`} className="host-invite-button"><NimiqQrCode size={18} /><span>View invite</span></ButtonLink>
+        </div>
 
         <section className="host-dashboard-hero" aria-labelledby="guest-arka-name">
           <h1 id="guest-arka-name">{arka.name}</h1>
@@ -117,28 +106,25 @@ export function GuestArkaViewScreen() {
           </div>
         </section>
 
-        {guest.status !== 'paid' && arka.status !== 'expired' ? <section className="mt-3 rounded-[1.25rem] border border-[#ead28c] bg-[#fff8e7] p-4" aria-live="polite"><p className="text-sm font-black text-[#5f4100]">3% NIM cashback active</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">Pay with NIM to unlock {formatNim(cashbackPreview.amountNim)}. The host sends it back in a separate Nimiq Pay confirmation.</p></section> : null}
-
         <section className="mt-3 rounded-[1.25rem] border border-[#e5d6c1] bg-white/92 p-4 shadow-[0_8px_20px_rgba(50,35,10,0.04)]" aria-labelledby="guest-members-title">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="guest-members-title" className="text-sm font-extrabold text-[#111b25]">Members ({arka.members.length})</h2>
             <p className="text-sm font-semibold text-arka-muted">{progress.paidMemberCount} paid · {progress.pendingMemberCount + progress.partialMemberCount} pending</p>
           </div>
-          <div className="flex items-start justify-between gap-2 overflow-x-auto pb-1">
+          <div className="flex items-start gap-3 overflow-x-auto pb-1">
             {arka.members.map((member) => (
-              <div key={member.id} className="min-w-[3rem] text-center">
+              <div key={member.id} className="w-[4.75rem] shrink-0 text-center">
                 <span className="relative mx-auto block size-10">
                   <MemberIdenticon seed={member.walletAddress ?? member.userId} className="size-10" />
                   <span className={`absolute -bottom-0.5 -right-0.5 grid size-4 place-items-center rounded-full text-white ${member.status === 'paid' ? 'bg-[#48ad4e]' : member.status === 'partial' ? 'bg-[#e99b00]' : 'bg-[#9ba0a4]'}`}>
                     {member.status === 'paid' ? <NimiqCheckmarkSmall size={11} /> : <Clock3 size={10} />}
                   </span>
                 </span>
-                <span className="sr-only">{formatPublicIdentity(member.displayName, member.walletAddress)}</span>
+                <span className="mt-1.5 block truncate text-[11px] font-bold text-[#111b25]">{formatPublicIdentity(member.displayName, member.walletAddress)}</span>
               </div>
             ))}
           </div>
         </section>
-
         <p className="mt-4 flex items-center justify-center gap-2 text-center text-sm font-semibold text-[#68727c]">
           <ShieldCheck size={17} className="shrink-0 text-[#c48700]" />
           You’ll confirm the payment in Nimiq Pay.

@@ -1,14 +1,18 @@
-import { Check, Share2, X } from 'lucide-react'
+import { Check, Clock3, Gift, Share2, X } from 'lucide-react'
 import { useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { PaymentReceiptCard } from '../components/arka/PaymentReceiptCard'
 import { SuccessCard } from '../components/arka/SuccessCard'
 import { BottomActionBar } from '../components/layout/BottomActionBar'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Button, ButtonLink } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqArrowLeft, NimiqArrowRight } from '../components/ui/NimiqIcon'
+import { NimiqArrowRight } from '../components/ui/NimiqIcon'
+import { formatNim } from '../lib/arka/formatMoney'
 import { buildPaymentReceiptShareText } from '../lib/arka/paymentReceipt'
+import { calculateCashbackReward } from '../lib/payments/cashback'
 import { paymentAssetSelectionKey, useArkaStore } from '../store/arkaStore'
 import { getGuestMember, getHostMember } from './routeUtils'
 
@@ -40,13 +44,22 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
           && payment.payerUserId === payer.userId
           && payment.status === 'confirmed'
       ))
+  const pendingVerification = activePayment?.arkaId === activeArka.id
+    && activePayment.payerUserId === payer.userId
+    && activePayment.status === 'submitted'
+    ? activePayment
+    : undefined
   const paymentAsset = confirmedPayment?.asset
+    ?? pendingVerification?.asset
     ?? paymentAssetSelections[paymentAssetSelectionKey(activeArka.id, payer.id)]
     ?? activeArka.selectedAsset
-  if (!confirmedPayment && payer.status !== 'paid') {
+  if (!confirmedPayment && !pendingVerification && payer.status !== 'paid') {
     return <Navigate to={returnTo} replace />
   }
   const confirmedPayer = payer
+  const cashbackReward = payerRole === 'guest' && confirmedPayment?.asset === 'NIM' && payer.status === 'paid'
+    ? calculateCashbackReward(payer)
+    : undefined
 
   async function sharePayment() {
     const text = buildPaymentReceiptShareText({ arka: activeArka, member: confirmedPayer, asset: paymentAsset, payment: confirmedPayment })
@@ -83,17 +96,30 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
   return (
     <MobileScreen withBottomAction>
       <ScreenContainer>
-        <div className="flex min-h-12 items-center">
-          <Link
-            aria-label="Back to Arka"
-            className="grid size-12 place-items-center rounded-2xl border border-[#eadcc8] bg-white/90 text-arka-text shadow-[0_4px_8px_rgba(27,28,25,0.05)]"
-            to={returnTo}
-          >
-            <NimiqArrowLeft size={21} />
-          </Link>
-        </div>
+        <ArkaHeader title="Payment received" subtitle={activeArka.name} backTo={returnTo} />
 
-        <SuccessCard arka={activeArka} member={payer} asset={paymentAsset} payment={confirmedPayment} />
+        {pendingVerification && payer.status !== 'paid' ? (
+          <Card className="mt-6 border-[#ead28c] bg-[#fff9e9] p-6 text-center">
+            <span className="mx-auto grid size-16 place-items-center rounded-full bg-[#f7d772] text-[#5f4100]"><Clock3 size={29} /></span>
+            <h1 className="mt-5 text-2xl font-black">Contribution sent</h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-arka-muted">Arka is verifying the mainnet transaction before adding it to the shared fund history. You will not be asked to pay again.</p>
+            <p className="mt-4 rounded-xl bg-white p-3 text-sm font-black text-[#7d5700]">Verification retries automatically.</p>
+          </Card>
+        ) : (
+          <>
+            <SuccessCard arka={activeArka} member={payer} asset={paymentAsset} payment={confirmedPayment} />
+            {cashbackReward && cashbackReward.amountNim > 0 ? (
+              <Card className="flex items-start gap-3 border-[#e7c95e] bg-[#fff8e7] p-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#1b1c19] text-[#f7c842]"><Gift size={20} /></span>
+                <div>
+                  <h2 className="text-sm font-black">3% NIM cashback eligible</h2>
+                  <p className="mt-1 text-lg font-black text-[#6d4b00]">{formatNim(cashbackReward.amountNim)}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-arka-muted">The host sends this as a separate NIM payment. It appears in NIM Earn only after confirmation in Nimiq Pay.</p>
+                </div>
+              </Card>
+            ) : null}
+          </>
+        )}
       </ScreenContainer>
 
       <BottomActionBar aboveBottomNav>
@@ -102,7 +128,7 @@ export function PaymentSuccessScreen({ payerRole = 'guest' }: { payerRole?: 'gue
           <span>Back to Arka</span>
           <NimiqArrowRight aria-hidden="true" size={20} />
         </ButtonLink>
-        <Button variant="secondary" type="button" onClick={() => setIsShareCardOpen(true)}>
+        <Button variant="secondary" type="button" disabled={Boolean(pendingVerification && payer.status !== 'paid')} onClick={() => setIsShareCardOpen(true)}>
           {shareFinished ? <Check aria-hidden="true" size={19} /> : <Share2 aria-hidden="true" size={19} />}
           <span aria-live="polite">{shareFeedback}</span>
         </Button>

@@ -2,9 +2,13 @@ import { lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { WalletReconnectNotice } from './components/arka/WalletReconnectNotice'
 import { WalletConnectionGate } from './components/arka/WalletConnectionGate'
+import { ArkaWalkthroughProvider } from './components/arka/ArkaWalkthrough'
 import { useSharedArkasRefresh } from './hooks/useSharedArkaRefresh'
 import { sanitizeAnalyticsRoute, trackAnalyticsEvent } from './lib/analytics/analytics'
+import { formatWalletAddress } from './lib/arka/formatWalletAddress'
+import { normalizeNimiqAddress } from './lib/nimiq/sharedWalletCrypto'
 import { useArkaStore } from './store/arkaStore'
+import { useProfileStore } from './store/profileStore'
 import { useWalletStore } from './store/walletStore'
 import { getCurrentArkaMember } from './routes/routeUtils'
 
@@ -77,6 +81,35 @@ function SharedArkaSync() {
   return null
 }
 
+function ProfileIdentitySync() {
+  const arkas = useArkaStore((state) => state.arkas)
+  const walletAddress = useWalletStore((state) => state.wallet?.address)
+  const displayName = useProfileStore((state) => state.displayName)
+  const setDisplayName = useProfileStore((state) => state.setDisplayName)
+
+  useEffect(() => {
+    if (!walletAddress || displayName) return
+
+    const normalizedWallet = normalizeNimiqAddress(walletAddress)
+    const walletLabel = formatWalletAddress(walletAddress)
+    const sharedName = [...arkas]
+      .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
+      .flatMap((arka) => arka.members)
+      .find((member) => (
+        member.walletAddress
+        && normalizeNimiqAddress(member.walletAddress) === normalizedWallet
+        && member.displayName.trim()
+        && member.displayName.trim() !== walletLabel
+      ))
+      ?.displayName
+      .trim()
+
+    if (sharedName) setDisplayName(sharedName)
+  }, [arkas, displayName, setDisplayName, walletAddress])
+
+  return null
+}
+
 function ArkaRoleBoundary({
   requiredRole,
   children,
@@ -85,7 +118,8 @@ function ArkaRoleBoundary({
   children: ReactNode
 }) {
   const { arkaId } = useParams()
-  const arka = useArkaStore((state) => state.getArka(arkaId))
+  const arkas = useArkaStore((state) => state.arkas)
+  const arka = arkas.find((candidate) => candidate.id === arkaId)
   const guestMemberId = useArkaStore((state) => (
     arkaId ? state.guestMemberIdsByArka[arkaId] : state.currentGuestMemberId
   ))
@@ -109,20 +143,22 @@ function ArkaRoleBoundary({
 export function App() {
   return (
     <BrowserRouter>
-      <AnalyticsRouteTracker />
-      <SharedArkaSync />
-      <WalletReconnectNotice />
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
+      <ArkaWalkthroughProvider>
+        <AnalyticsRouteTracker />
+        <SharedArkaSync />
+        <ProfileIdentitySync />
+        <WalletReconnectNotice />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/arkas" element={<WalletConnectionGate><CompletedArkasHistoryScreen /></WalletConnectionGate>} />
           <Route path="/activity" element={<WalletConnectionGate><ActivityScreen /></WalletConnectionGate>} />
-          <Route path="/scan" element={<WalletConnectionGate><JoinArkaScreen /></WalletConnectionGate>} />
+          <Route path="/scan" element={<JoinArkaScreen />} />
           <Route path="/profile" element={<WalletConnectionGate><ProfileScreen /></WalletConnectionGate>} />
           <Route path="/wallet-lab" element={<DualChainLabScreen />} />
           <Route path="/people" element={<Navigate to="/profile" replace />} />
           <Route path="/create" element={<WalletConnectionGate><CreateArkaScreen /></WalletConnectionGate>} />
-          <Route path="/join" element={<WalletConnectionGate><JoinArkaScreen /></WalletConnectionGate>} />
+          <Route path="/join" element={<JoinArkaScreen />} />
           <Route path="/join/:code/preview" element={<WalletConnectionGate><ArkaPreviewGuestScreen /></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/share" element={<WalletConnectionGate><ShareArkaScreen /></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/guest" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="guest"><GuestArkaViewScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
@@ -133,14 +169,16 @@ export function App() {
           <Route path="/arka/:arkaId/host" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><HostCollectedFundsSummaryScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/host/summary" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><HostCollectedFundsSummaryScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/settle" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><SettlePaymentScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
+          <Route path="/arka/:arkaId/fund-setup" element={<WalletConnectionGate><ArkaRoleBoundary requiredRole="host"><HostCollectedFundsSummaryScreen /></ArkaRoleBoundary></WalletConnectionGate>} />
           <Route path="/arka/:arkaId/completed" element={<WalletConnectionGate><CompletedArkaSummaryScreen /></WalletConnectionGate>} />
           <Route path="/history" element={<WalletConnectionGate><CompletedArkasHistoryScreen /></WalletConnectionGate>} />
           <Route path="/error/insufficient-balance" element={<InsufficientBalanceErrorScreen />} />
           <Route path="/error/payment-failed" element={<PaymentFailedErrorScreen />} />
           <Route path="/error/arka-not-found" element={<ArkaNotFoundErrorScreen />} />
           <Route path="*" element={<Navigate to="/error/arka-not-found" replace />} />
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ArkaWalkthroughProvider>
     </BrowserRouter>
   )
 }

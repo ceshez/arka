@@ -7,6 +7,8 @@ cache
 dist
 docs
 node_modules
+/supabase
 test
 tests
+tools
 *.log

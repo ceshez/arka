@@ -1,30 +1,21 @@
 import {
   Crown,
-  DollarSign,
   SlidersHorizontal,
   UsersRound,
-  Wallet,
+  WalletCards,
   type LucideIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArkaHeader } from '../components/arka/ArkaHeader'
-import { ArkaDeadlinePicker } from '../components/arka/ArkaDeadlinePicker'
+import { HomeArkasHeader } from '../components/arka/HomeArkasHeader'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
 import { NimiqArrowRight, NimiqCheckmarkSmall, NimiqInfoCircleSmall } from '../components/ui/NimiqIcon'
 import { useNimPrice } from '../hooks/useNimPrice'
 import { arkaCategoryIcons } from '../lib/arka/categoryIcons'
-import {
-  createDefaultArkaDeadline,
-  isFutureDeadline,
-  parseLocalDeadline,
-  toLocalDateTimeInputValue,
-} from '../lib/arka/deadline'
-import { formatNim } from '../lib/arka/formatMoney'
-import { getNimiqWalletSurfaceName } from '../lib/nimiq/detectNimiqEnvironment'
+import { formatNimEstimate, normalizeUsdInput } from '../lib/arka/formatMoney'
 import { cn } from '../lib/utils/cn'
 import { useArkaStore } from '../store/arkaStore'
 import { useWalletStore } from '../store/walletStore'
@@ -66,35 +57,29 @@ export function CreateArkaScreen() {
   const [category, setCategory] = useState<ArkaCategory>('dinner')
   const [totalFiat, setTotalFiat] = useState('')
   const [splitMethod, setSplitMethod] = useState<SplitMethodType>('equal')
-  const [deadline, setDeadline] = useState(() => toLocalDateTimeInputValue(createDefaultArkaDeadline()))
-  const [minimumDeadline] = useState(() => Date.now() + 60_000)
   const [nameIsCustom, setNameIsCustom] = useState(false)
-  const [touched, setTouched] = useState({ name: false, total: false, deadline: false })
+  const [touched, setTouched] = useState({ name: false, total: false })
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
   const selectedAsset: AssetSymbol = 'NIM'
-  const numericTotal = Number(totalFiat)
-  const validTotal = Number.isFinite(numericTotal) && numericTotal > 0
-  const nimEstimate = Number(((validTotal ? numericTotal : 0) / nimPrice.usd).toFixed(2))
+  const numericTotalFiat = Number(totalFiat)
+  const validTotal = Number.isFinite(numericTotalFiat) && numericTotalFiat > 0
+  const totalNimEstimate = Number((
+    validTotal && nimPrice.usd > 0 ? numericTotalFiat / nimPrice.usd : 0
+  ).toFixed(5))
   const SelectedCategoryIcon = arkaCategoryIcons[category]
-  const walletSurfaceName = getNimiqWalletSurfaceName()
   const suggestedName = categorySuggestions[category]
   const nameError = name.trim().length === 0 ? 'Give your Arka a name.' : null
-  const totalError = validTotal ? null : 'Enter an amount greater than $0.'
-  const deadlineError = isFutureDeadline(deadline, minimumDeadline - 60_000) ? null : 'Choose a deadline in the future.'
+  const totalError = !validTotal ? 'Enter a USD goal greater than 0.' : null
   const showNameError = Boolean(nameError && (touched.name || submitAttempted))
   const showTotalError = Boolean(totalError && (touched.total || submitAttempted))
-  const showDeadlineError = Boolean(deadlineError && (touched.deadline || submitAttempted))
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitAttempted(true)
-    if (nameError || totalError || deadlineError) return
-
-    const parsedDeadline = parseLocalDeadline(deadline)
-    if (!parsedDeadline) return
+    if (nameError || totalError) return
 
     setIsCreating(true)
     setCreateError('')
@@ -110,11 +95,12 @@ export function CreateArkaScreen() {
         name: name.trim(),
         type: 'tab',
         category,
-        totalFiat: numericTotal,
+        totalFiat: numericTotalFiat,
+        totalNim: totalNimEstimate,
         selectedAsset,
         splitMethod,
-        expiresAt: parsedDeadline.toISOString(),
         nimUsdPrice: nimPrice.usd,
+        fundingMode: 'host-wallet',
       })
       navigate(`/arka/${arka.id}/share`)
     } catch (error) {
@@ -127,16 +113,16 @@ export function CreateArkaScreen() {
   }
 
   return (
-    <MobileScreen className="create-arka-screen flex justify-end !bg-[#fffaf5]" scrollable={false}>
+    <MobileScreen className="create-arka-screen !bg-[#fffaf5]">
       <motion.form
         onSubmit={handleCreate}
-        className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#fffaf5]"
+        className="relative z-10 flex min-h-full w-full flex-col bg-[#fffaf5]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.18, ease: 'easeOut' }}
       >
-      <ScreenContainer className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
-        <ArkaHeader title="Create Arka" subtitle="Set up a shared tab or group fund in seconds." backTo="/" />
+      <ScreenContainer className="!flex-none px-5 pb-6">
+        <HomeArkasHeader title="Create Arka" subtitle="Set up a shared tab in seconds." />
         <div className="grid gap-5">
           <label className="grid gap-2" htmlFor="arka-name">
             <span className="text-sm font-extrabold text-[#111b25]">Arka name</span>
@@ -149,6 +135,7 @@ export function CreateArkaScreen() {
               <SelectedCategoryIcon size={25} className="shrink-0 text-[#0f1b27]" strokeWidth={1.9} />
               <input
                 id="arka-name"
+                data-tour="create-arka-name"
                 maxLength={80}
                 className="min-h-11 min-w-0 flex-1 bg-transparent text-lg font-semibold text-[#0f1b27] outline-none"
                 value={name}
@@ -199,30 +186,30 @@ export function CreateArkaScreen() {
           </fieldset>
 
           <label className="grid gap-2" htmlFor="arka-total">
-            <span className="text-sm font-extrabold text-[#111b25]">Total amount</span>
+            <span className="text-sm font-extrabold text-[#111b25]">Funding goal</span>
             <div
               className={cn(
-                'flex min-h-[82px] items-center gap-4 rounded-2xl border bg-white px-4 shadow-[0_7px_14px_rgba(233,178,19,0.09)] transition-colors focus-within:ring-2 focus-within:ring-[#E9B213]/15',
+                'flex min-h-[88px] items-center rounded-2xl border bg-white px-5 shadow-[0_7px_14px_rgba(233,178,19,0.09)] transition-colors focus-within:ring-2 focus-within:ring-[#E9B213]/15',
                 showTotalError ? 'border-arka-error' : 'border-[#E9B213]',
               )}
             >
-              <span className="grid size-14 shrink-0 place-items-center rounded-full bg-linear-to-b from-[#F8DD7B] to-[#E9B213] text-[#120d04]" aria-hidden="true">
-                <DollarSign size={32} strokeWidth={2} />
-              </span>
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-baseline">
-                  <span className="text-[34px] font-extrabold leading-none text-[#0f1b27]">$</span>
+                <div className="flex min-w-0 items-baseline gap-1">
+                  <span className="shrink-0 text-[34px] font-extrabold leading-none text-[#0f1b27]" aria-hidden="true">$</span>
                   <input
                     id="arka-total"
                     className="min-h-11 w-0 min-w-0 flex-1 bg-transparent text-[34px] font-extrabold leading-none text-[#0f1b27] outline-none"
                     inputMode="decimal"
                     enterKeyHint="go"
-                    placeholder="0.00"
+                    placeholder="0"
                     value={totalFiat}
                     aria-invalid={showTotalError}
                     aria-describedby={showTotalError ? 'arka-total-error' : 'arka-total-help'}
-                    onBlur={() => setTouched((current) => ({ ...current, total: true }))}
-                    onChange={(event) => setTotalFiat(event.target.value)}
+                    onBlur={() => {
+                      setTouched((current) => ({ ...current, total: true }))
+                      if (validTotal) setTotalFiat(numericTotalFiat.toFixed(2))
+                    }}
+                    onChange={(event) => setTotalFiat(normalizeUsdInput(event.target.value))}
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter') return
                       event.preventDefault()
@@ -230,7 +217,11 @@ export function CreateArkaScreen() {
                     }}
                   />
                 </div>
-                <p className="mt-1 text-sm font-semibold text-[#68727c]">~ {formatNim(nimEstimate)} · {nimPrice.isLive ? 'live rate' : 'estimated rate'}</p>
+                <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm font-semibold text-[#68727c]">
+                  <span>≈ {formatNimEstimate(totalNimEstimate)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{nimPrice.source === 'coingecko' ? 'CoinGecko live rate' : nimPrice.source === 'cached' ? 'last live rate' : 'temporary estimate'}</span>
+                </p>
               </div>
             </div>
             {showTotalError ? (
@@ -238,35 +229,18 @@ export function CreateArkaScreen() {
             ) : (
               <p id="arka-total-help" className="flex gap-2 text-sm font-medium leading-5 text-[#68727c]">
                 <NimiqInfoCircleSmall size={17} className="mt-0.5 shrink-0" />
-                <span>Tap the name, total, split method, or deadline inside your Arka to edit them later.</span>
+                <span>The USD goal stays fixed. NIM is shown as an estimate for the group.</span>
               </p>
             )}
           </label>
 
-          <section className="flex items-start gap-3 rounded-2xl bg-[#eef7ee] p-4" aria-label="NIM payment information">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#d8efdc] text-[#176832]" aria-hidden="true"><Wallet size={20} /></span>
-            <div><h2 className="text-sm font-black text-[#174f29]">Collected by the host</h2><p className="mt-1 text-sm font-semibold leading-5 text-[#3f6049]">Contributions are sent to the host wallet and confirmed in {walletSurfaceName}.</p></div>
+          <section className="flex items-start gap-3 rounded-2xl bg-[#eef7ee] p-4" aria-label="Host wallet information">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#d8efdc] text-[#176832]" aria-hidden="true"><WalletCards size={20} /></span>
+            <div>
+              <h2 className="text-sm font-black text-[#174f29]">Collected by the host</h2>
+              <p className="mt-1 text-sm font-semibold leading-5 text-[#3f6049]">Invite people after creating the Arka. Contributions go to the host wallet, and the host settles the final payment through Nimiq Pay.</p>
+            </div>
           </section>
-
-          <div>
-            <ArkaDeadlinePicker
-              id="arka-deadline"
-              value={deadline}
-              minimum={new Date(minimumDeadline)}
-              invalid={showDeadlineError}
-              describedBy={showDeadlineError ? 'arka-deadline-error' : 'arka-deadline-help'}
-              onBlur={() => setTouched((current) => ({ ...current, deadline: true }))}
-              onChange={setDeadline}
-            />
-            {showDeadlineError ? (
-              <p id="arka-deadline-error" className="mt-2 text-sm font-semibold text-arka-error">{deadlineError}</p>
-            ) : (
-              <p id="arka-deadline-help" className="mt-2 flex gap-2 text-sm font-medium leading-5 text-[#68727c]">
-                <NimiqInfoCircleSmall size={17} className="mt-0.5 shrink-0" />
-                <span>New payments stop after this time. You can change it until the first contribution.</span>
-              </p>
-            )}
-          </div>
 
           <fieldset className="grid gap-2">
             <legend className="text-sm font-extrabold text-[#111b25]">Split method</legend>
@@ -302,16 +276,17 @@ export function CreateArkaScreen() {
               <span>You can edit member amounts later.</span>
             </p>
           </fieldset>
+          <div className="pt-1">
+            {createError ? <p className="mb-2 text-center text-sm font-semibold text-arka-error" role="alert">{createError}</p> : null}
+            <Button type="submit" className="relative grid min-h-14 grid-cols-[22px_1fr_22px] text-base" disabled={isCreating}>
+              <span aria-hidden="true" />
+              <span className="text-center">{isCreating ? 'Creating shared Arka…' : 'Create Arka'}</span>
+              <NimiqArrowRight size={22} />
+            </Button>
+          </div>
         </div>
 
       </ScreenContainer>
-      <footer className="arka-bottom-action create-arka-footer relative z-30 shrink-0 border-t border-[#e8dfd1] bg-[#fffaf5] px-5 pb-2 pt-2">
-        {createError ? <p className="mb-2 text-center text-sm font-semibold text-arka-error" role="alert">{createError}</p> : null}
-        <Button type="submit" className="relative min-h-14 text-base" disabled={isCreating}>
-          <span>{isCreating ? 'Creating shared Arka…' : 'Create Arka'}</span>
-          <NimiqArrowRight className="absolute right-6" size={22} />
-        </Button>
-      </footer>
       </motion.form>
     </MobileScreen>
   )

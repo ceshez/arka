@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { BottomActionBar } from '../components/layout/BottomActionBar'
 import { ArkaBrandMark } from '../components/arka/ArkaBrandMark'
 import { InviteQrScanner } from '../components/arka/InviteQrScannerSheet'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqArrowLeft, NimiqArrowRight, NimiqScanQrCode } from '../components/ui/NimiqIcon'
+import { NimiqArrowRight, NimiqScanQrCode } from '../components/ui/NimiqIcon'
 import { InviteRepositoryError } from '../lib/invites/inviteRepository'
 import { cn } from '../lib/utils/cn'
 import { useArkaStore } from '../store/arkaStore'
@@ -55,22 +56,10 @@ export function JoinArkaScreen() {
 
   return (
     <MobileScreen className="bg-[#fffaf5]" withBottomAction>
-      <ScreenContainer className="gap-0 px-5 pt-[var(--arka-content-top)]">
-        <header className="flex min-h-[100px] items-start gap-3 pt-1">
-          <Link
-            className="grid size-11 shrink-0 place-items-center rounded-xl border border-[#eadcc8] bg-white transition active:scale-[0.97]"
-            to="/"
-            aria-label="Go back"
-          >
-            <NimiqArrowLeft size={21} />
-          </Link>
-          <div className="min-w-0 pt-1">
-            <h1 className="arka-page-title">Join Arka</h1>
-            <p className="mt-2 text-sm font-semibold leading-5 text-[#5f6871]">Scan an invite or enter the code your group shared.</p>
-          </div>
-        </header>
+      <ScreenContainer className="gap-6 px-5">
+        <ArkaHeader title="Join Arka" subtitle="Scan an invite or enter the code your group shared." backTo="/" />
 
-        <section aria-label="QR scanner">
+        <section aria-label="QR scanner" data-tour="join-arka-qr">
           <InviteQrScanner onScan={(reference) => void handleJoinReference(reference)} />
         </section>
 
@@ -80,7 +69,7 @@ export function JoinArkaScreen() {
           <span className="h-px flex-1 bg-[#e8dfd2]" />
         </div>
 
-        <label className="grid gap-2" htmlFor="invitation-code">
+        <label className="grid gap-2" htmlFor="invitation-code" data-tour="join-arka-code">
           <span className="text-sm font-black text-[#302b20]">Invitation code</span>
           <div
             className={cn(

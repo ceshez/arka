@@ -11,7 +11,7 @@ import { MemberIdenticon } from './MemberIdenticon'
 
 type SortMode = 'recent' | 'frequent' | 'name'
 
-export function YourPeopleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function YourPeopleSheet({ open, onClose, dataTour }: { open: boolean; onClose: () => void; dataTour?: string }) {
   const [sortMode, setSortMode] = useState<SortMode>('recent')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<SharedContact | null>(null)
@@ -32,6 +32,17 @@ export function YourPeopleSheet({ open, onClose }: { open: boolean; onClose: () 
         return Date.parse(right.lastSharedAt) - Date.parse(left.lastSharedAt)
       })
   }, [arkas, currentGuestMemberId, nicknames, query, sortMode, walletAddress])
+  const displayContacts = contacts.length || !dataTour
+    ? contacts
+    : [{
+        id: 'walkthrough-contact-example',
+        avatarSeed: 'NQ17 WALK THROUGH CONTACT EXAMPLE',
+        name: 'Sofía R.',
+        arkaCount: 2,
+        lastArkaName: 'Friday dinner',
+        lastSharedAt: new Date(0).toISOString(),
+        totalSharedNim: 12.4,
+      }]
 
   const openNickname = (contact: SharedContact) => {
     setSelected(contact)
@@ -47,22 +58,24 @@ export function YourPeopleSheet({ open, onClose }: { open: boolean; onClose: () 
 
   return (
     <>
-      <BottomSheet open={open} onClose={onClose} eyebrow="Your people" title="Shared contacts">
+      <BottomSheet open={open} onClose={onClose} eyebrow="Your people" title="Shared contacts" dataTour={dataTour}>
         <p className="text-sm font-semibold leading-6 text-arka-muted">People from the Arkas you have shared. Private nicknames stay on this device.</p>
+        {dataTour && !contacts.length ? <p className="mt-3 rounded-xl bg-[#fff1c7] px-3 py-2 text-xs font-bold leading-5 text-[#5f4100]">Example contact for this walkthrough. It is not saved to your profile.</p> : null}
         <div className="relative mt-4"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-arka-muted" size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-13 w-full rounded-xl border border-[#e2d9cc] bg-white pl-11 pr-4 text-sm font-semibold outline-none focus:border-[#b57a00]" placeholder="Search people or nicknames" aria-label="Search people" /></div>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Sort people">
           {([['recent', 'Most recent'], ['frequent', 'Most Arkas'], ['name', 'A–Z']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setSortMode(value)} className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-black transition ${sortMode === value ? 'bg-[#1b1c19] text-white' : 'border border-[#e3dbcf] bg-white text-arka-muted'}`}>{label}</button>)}
         </div>
         <section className="mt-3 max-h-[calc(90dvh-20rem)] overflow-y-auto rounded-xl border border-[#e6ded2] bg-white overscroll-contain">
-          {contacts.map((contact, index) => {
-            const nickname = nicknames[contact.id]
+          {displayContacts.map((contact, index) => {
+            const isWalkthroughExample = contact.id === 'walkthrough-contact-example'
+            const nickname = isWalkthroughExample ? 'Sofi from work' : nicknames[contact.id]
             return <div key={contact.id} className={`flex min-h-[82px] items-center gap-3 px-4 py-3 ${index ? 'border-t border-[#eee8df]' : ''}`}>
               <MemberIdenticon seed={contact.avatarSeed} className="size-12 shrink-0" />
-              <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{nickname || contact.name}</p>{nickname ? <p className="text-xs font-semibold text-arka-muted">{contact.name}</p> : null}<p className="mt-1 truncate text-xs font-semibold text-arka-muted">{contact.arkaCount} {contact.arkaCount === 1 ? 'Arka' : 'Arkas'} · {formatNim(contact.totalSharedNim)} shared</p></div>
-              <button type="button" onClick={() => openNickname(contact)} className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f6f2e9] text-[#7d5700]" aria-label={`Set a nickname for ${contact.name}`}><Pencil size={16} /></button>
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{contact.name}</p>{nickname ? <p className="mt-0.5 truncate text-xs font-semibold text-[#7d5700]">Your nickname: {nickname}</p> : null}<p className="mt-1 truncate text-xs font-semibold text-arka-muted">{contact.arkaCount} {contact.arkaCount === 1 ? 'Arka' : 'Arkas'} · {formatNim(contact.totalSharedNim)} shared</p></div>
+              {isWalkthroughExample ? <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f6f2e9] text-[#7d5700]" aria-label="Nickname edit example"><Pencil size={16} /></span> : <button type="button" onClick={() => openNickname(contact)} className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f6f2e9] text-[#7d5700]" aria-label={`Set a nickname for ${contact.name}`}><Pencil size={16} /></button>}
             </div>
           })}
-          {!contacts.length ? <div className="grid min-h-48 place-items-center px-6 text-center"><div><UsersRound className="mx-auto text-arka-muted" /><p className="mt-3 text-sm font-black">No shared people yet</p><p className="mt-1 text-xs font-semibold text-arka-muted">People appear here after you share an Arka.</p></div></div> : null}
+          {!displayContacts.length ? <div className="grid min-h-48 place-items-center px-6 text-center"><div><UsersRound className="mx-auto text-arka-muted" /><p className="mt-3 text-sm font-black">No shared people yet</p><p className="mt-1 text-xs font-semibold text-arka-muted">People appear here after you share an Arka.</p></div></div> : null}
         </section>
         <p className="mt-3 flex items-center justify-center gap-2 text-xs font-semibold text-arka-muted"><ArrowDownUp size={14} /> Nicknames are private and only visible to you.</p>
       </BottomSheet>

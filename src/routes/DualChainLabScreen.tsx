@@ -1,6 +1,6 @@
-import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Loader2, ShieldCheck, WalletCards } from 'lucide-react'
+import { AlertCircle, CheckCircle2, KeyRound, Loader2, ShieldCheck, WalletCards } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
@@ -119,12 +119,7 @@ export function DualChainLabScreen() {
   return (
     <MobileScreen>
       <ScreenContainer className="gap-4">
-        <header className="flex items-center gap-3">
-          <Link to="/profile" aria-label="Back to profile" className="grid size-12 place-items-center rounded-2xl border border-[#eadcc8] bg-white/90 text-arka-text shadow-[0_4px_8px_rgba(27,28,25,0.05)]">
-            <ArrowLeft size={20} />
-          </Link>
-          <div><p className="text-xs font-bold text-arka-muted">Developer test</p><h1 className="arka-page-title">Wallet test lab</h1></div>
-        </header>
+        <ArkaHeader title="Wallet test lab" subtitle="Developer test" backTo="/profile" />
 
         <section>
           <p className="text-sm font-black uppercase tracking-[0.14em] text-[#a46f00]">Dual-chain Mini App</p>

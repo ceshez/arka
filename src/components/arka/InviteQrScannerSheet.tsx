@@ -27,7 +27,7 @@ function cameraErrorMessage(error: unknown) {
     return 'The camera is busy or unavailable. Close other camera apps, then try again.'
   }
 
-  return 'This browser could not start the camera. Choose a QR image or enter the invitation code.'
+  return 'This browser could not start the camera. Choose a QR image or enter the value manually.'
 }
 
 function imageFromUrl(url: string) {
@@ -127,12 +127,20 @@ async function decodeQrImage(file: File) {
   }
 }
 
-export function InviteQrScanner({
+export function QrScannerView({
   active = true,
   onScan,
+  parseValue,
+  invalidQrMessage = 'That QR could not be read.',
+  activeMessage = 'Point your camera at the QR. It opens automatically.',
+  fallbackMessage = 'Use a QR photo or enter the value manually.',
 }: {
   active?: boolean
   onScan: (reference: string) => void
+  parseValue: (value: string) => string | null | undefined
+  invalidQrMessage?: string
+  activeMessage?: string
+  fallbackMessage?: string
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
@@ -170,7 +178,7 @@ export function InviteQrScanner({
       if (!navigator.mediaDevices?.getUserMedia || !videoRef.current) {
         window.clearTimeout(startupTimer)
         setCameraState('error')
-        setCameraError('Camera scanning is not available in this browser. Choose a QR image or enter the invitation code.')
+        setCameraError('Camera scanning is not available in this browser. Choose a QR image or enter the value manually.')
         return
       }
 
@@ -183,9 +191,9 @@ export function InviteQrScanner({
         (result) => {
           if (cancelled) return
 
-          const reference = parseInviteReference(result.data)
+          const reference = parseValue(result.data)
           if (!reference) {
-            setScanError('That QR is not an Arka invitation.')
+            setScanError(invalidQrMessage)
             return
           }
 
@@ -230,7 +238,7 @@ export function InviteQrScanner({
       scannerRef.current?.destroy()
       scannerRef.current = null
     }
-  }, [active, cameraAttempt])
+  }, [active, activeMessage, cameraAttempt, fallbackMessage, invalidQrMessage, parseValue])
 
   async function handleImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -241,16 +249,16 @@ export function InviteQrScanner({
     setScanError('')
 
     try {
-      const reference = parseInviteReference(await decodeQrImage(file))
+      const reference = parseValue(await decodeQrImage(file))
       if (!reference) {
-        setScanError('That QR is not an Arka invitation.')
+        setScanError(invalidQrMessage)
         return
       }
 
       scannerRef.current?.stop()
       onScan(reference)
     } catch {
-      setScanError('No Arka QR was found. Fill the photo with the QR, or enter the invitation code below.')
+      setScanError(invalidQrMessage)
     } finally {
       setIsReadingImage(false)
     }
@@ -296,12 +304,12 @@ export function InviteQrScanner({
 
       <p className="mt-4 text-center text-sm font-semibold leading-5 text-arka-muted">
         {cameraState === 'active'
-          ? 'Point your camera at the invite QR. It opens automatically.'
+          ? activeMessage
           : cameraState === 'starting'
             ? 'Starting your camera...'
             : cameraState === 'insecure'
               ? 'Open the phone camera below, or use a secure HTTPS link for live scanning.'
-              : 'Use a QR photo or the invitation code below.'}
+              : fallbackMessage}
       </p>
 
       {cameraError ? (
@@ -344,6 +352,25 @@ export function InviteQrScanner({
         <ShieldCheck size={14} /> Camera frames stay on this device.
       </p>
     </section>
+  )
+}
+
+export function InviteQrScanner({
+  active = true,
+  onScan,
+}: {
+  active?: boolean
+  onScan: (reference: string) => void
+}) {
+  return (
+    <QrScannerView
+      active={active}
+      onScan={onScan}
+      parseValue={parseInviteReference}
+      invalidQrMessage="That QR is not an Arka invitation."
+      activeMessage="Point your camera at the invite QR. It opens automatically."
+      fallbackMessage="Use a QR photo or enter the invitation code below."
+    />
   )
 }
 

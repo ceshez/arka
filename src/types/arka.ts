@@ -2,6 +2,64 @@ export type AssetSymbol = 'NIM' | 'USDT'
 
 export type ArkaType = 'tab' | 'vault' | 'demo'
 
+export type FundingMode = 'host-wallet' | 'shared-wallet'
+
+export type SharedWalletStatus = 'pending' | 'verified'
+
+export type MemberActivationStatus = 'pending' | 'verified'
+
+export type SharedFundEventType =
+  | 'contribution'
+  | 'goal-reached'
+  | 'settlement-prepared'
+  | 'approvals-collected'
+  | 'settlement-confirmed'
+  | 'refund-requested'
+  | 'refund-confirmed'
+
+export type SharedFundEventStatus = 'pending' | 'confirmed' | 'rejected'
+
+export type SharedFundEvent = {
+  id: string
+  type: SharedFundEventType
+  status: SharedFundEventStatus
+  memberId?: string
+  label: string
+  amountNim?: number
+  createdAt: string
+}
+
+export type SettlementProposalStatus =
+  | 'prepared'
+  | 'awaiting-approvals'
+  | 'confirmed'
+  | 'expired'
+  | 'rejected'
+
+export type SettlementProposal = {
+  id: string
+  sourceWalletAddress: string
+  recipientWalletAddress: string
+  recipientLabel?: string
+  amountNim: number
+  memo: string
+  approvalThreshold: number
+  status: SettlementProposalStatus
+  createdAt: string
+  confirmedAt?: string
+}
+
+export type RefundPlanStatus = 'requested' | 'awaiting-approvals' | 'confirmed'
+
+export type RefundPlan = {
+  id: string
+  status: RefundPlanStatus
+  requestedAt: string
+  approvalThreshold: number
+  confirmedRefunds: number
+  totalRefunds: number
+}
+
 export type ArkaCategory =
   | 'dinner'
   | 'cafe'
@@ -83,7 +141,14 @@ export type ArkaMember = {
   amountPaidFiat: number
   amountPaidNim: number
   amountPaidUsdt?: number
+  cashbackEarnedNim?: number
+  cashbackPaidAt?: string
   status: ArkaMemberStatus
+  activationStatus?: MemberActivationStatus
+  activationPublicKey?: string
+  activationSignature?: string
+  activationMessage?: string
+  activatedAt?: string
   joinedAt?: string
   paidAt?: string
 }
@@ -107,8 +172,21 @@ export type Arka = {
   type: ArkaType
   status: ArkaStatus
   hostId: string
+  fundingMode?: FundingMode
   hostWalletAddress?: string
   merchantWalletAddress?: string
+  sharedWalletAddress?: string
+  sharedWalletStatus?: SharedWalletStatus
+  recipientWalletAddress?: string
+  recipientLabel?: string
+  recipientLockedAt?: string
+  approvalThreshold?: number
+  membershipLockedAt?: string
+  /** Legacy fixed-size beta field. New Arkas derive membership from members. */
+  participantLimit?: number
+  fundEvents?: SharedFundEvent[]
+  settlementProposal?: SettlementProposal
+  refundPlan?: RefundPlan
   currency: 'USD'
   totalFiat: number
   totalNimEstimate: number
@@ -171,8 +249,10 @@ export type CreateArkaInput = {
   totalFiat: number
   selectedAsset: AssetSymbol
   splitMethod: SplitMethodType
-  expiresAt: string
+  expiresAt?: string
   nimUsdPrice?: number
+  totalNim?: number
+  fundingMode?: FundingMode
 }
 
 export const supportedAssets: Asset[] = [

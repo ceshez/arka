@@ -1,17 +1,16 @@
-import { Gift, Loader2, ShieldCheck } from 'lucide-react'
+import { Loader2, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { ArkaHeader } from '../components/arka/ArkaHeader'
 import { PaymentSummaryCard } from '../components/arka/PaymentSummaryCard'
 import { AssetSelector } from '../components/arka/AssetSelector'
 import { BottomActionBar } from '../components/layout/BottomActionBar'
 import { ScreenContainer } from '../components/layout/ScreenContainer'
 import { Button } from '../components/ui/Button'
 import { MobileScreen } from '../components/ui/MobileScreen'
-import { NimiqArrowLeft, NimiqArrowRight } from '../components/ui/NimiqIcon'
+import { NimiqArrowRight } from '../components/ui/NimiqIcon'
 import { getNimiqWalletSurfaceName } from '../lib/nimiq/detectNimiqEnvironment'
 import { getRemainingPaymentAmounts } from '../lib/payments/getRemainingPaymentAmounts'
-import { calculateCashbackPreview } from '../lib/payments/cashback'
-import { formatNim } from '../lib/arka/formatMoney'
 import { useArkaStore } from '../store/arkaStore'
 import { getGuestMember, getHostMember } from './routeUtils'
 
@@ -43,7 +42,6 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
   if (!sponsorSelected || remainingPayment.amountFiat <= 0.001) {
     return <Navigate to={payerRole === 'host' ? `/arka/${activeArka.id}/host/summary` : `/arka/${activeArka.id}/guest`} replace />
   }
-  const cashbackPreview = calculateCashbackPreview(remainingPayment.amountFiat, remainingPayment.amountNim)
   const returnTo = payerRole === 'host' ? `/arka/${activeArka.id}/host/summary` : `/arka/${activeArka.id}/guest`
   const paymentPath = payerRole === 'host' ? `/arka/${activeArka.id}/host/pay` : `/arka/${activeArka.id}/pay`
   const successPath = payerRole === 'host'
@@ -59,7 +57,7 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
     try {
       const payment = await simulateGuestPayment(activeArka.id, payerId, paymentAsset)
 
-      if (payment.status === 'confirmed') {
+      if (payment.status === 'confirmed' || payment.status === 'submitted') {
         navigate(successPath)
         return
       }
@@ -97,26 +95,13 @@ export function PrePaymentSummaryScreen({ payerRole = 'guest' }: { payerRole?: '
   return (
     <MobileScreen withBottomAction>
       <ScreenContainer>
-        <header className="flex min-h-12 items-center gap-3">
-          <Link
-            aria-label="Go back to Arka"
-            className="grid size-12 place-items-center rounded-2xl border border-[#eadcc8] bg-white/90 text-arka-text shadow-[0_4px_8px_rgba(27,28,25,0.05)]"
-            to={returnTo}
-          >
-            <NimiqArrowLeft size={21} />
-          </Link>
-          <div><p className="text-xs font-bold text-arka-muted">{payerRole === 'host' ? 'Your host share' : 'Your share'}</p><h1 className="arka-page-title">Confirm payment</h1></div>
-        </header>
+        <ArkaHeader title="Confirm payment" subtitle={payerRole === 'host' ? 'Your host share' : 'Your share'} backTo={returnTo} />
 
         <p className="text-sm font-semibold leading-6 text-arka-muted">Review the details and choose your payment asset before continuing to {walletSurfaceName}.</p>
 
         <PaymentSummaryCard arka={activeArka} member={payer} asset={paymentAsset} />
 
         <section aria-labelledby="payment-asset"><h2 id="payment-asset" className="text-base font-black">Mainnet payment asset</h2><p className="mt-1 text-sm font-semibold text-arka-muted">NIM is the live payment option. USDT stays disabled until its transfer and confirmation flow is complete.</p><div className="mt-3"><AssetSelector value={paymentAsset} disabledAssets={disabledPaymentAssets} onChange={keepNimSelected} /></div></section>
-
-        <section className="rounded-[1.4rem] border border-[#e7c95e] bg-[#fff3c7] p-4 shadow-[0_8px_20px_rgba(125,87,0,0.08)]" aria-live="polite">
-          <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#1b1c19] text-[#f7c842]"><Gift size={21} /></span><div><p className="text-base font-black">Earn 3% NIM cashback</p><p className="mt-1 text-sm font-semibold leading-5 text-arka-muted">After this payment is confirmed, the host can send <strong className="text-[#5f4100]">{formatNim(cashbackPreview.amountNim)}</strong> back to your wallet. The reward is a separate Nimiq Pay confirmation.</p></div></div>
-        </section>
 
         <p className="flex items-center justify-center gap-2 text-center text-sm font-semibold text-arka-muted">
           <ShieldCheck aria-hidden="true" className="shrink-0 text-[#c88700]" size={20} strokeWidth={2} />

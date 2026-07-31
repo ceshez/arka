@@ -11,7 +11,17 @@ import { ArkaBrandMark } from './ArkaBrandMark'
 
 const transparentQrExcavation = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E'
 
-export function ShareQrCard({ arka, hostName, returnTo }: { arka: Arka; hostName?: string; returnTo: string }) {
+export function ShareQrCard({
+  arka,
+  hostName,
+  returnTo,
+  returnLabel = 'Go to Arka',
+}: {
+  arka: Arka
+  hostName?: string
+  returnTo: string
+  returnLabel?: string
+}) {
   const [feedback, setFeedback] = useState('')
   const feedbackTimer = useRef<number | undefined>(undefined)
   const hostMember = arka.members.find((member) => member.role === 'host')
@@ -102,7 +112,7 @@ export function ShareQrCard({ arka, hostName, returnTo }: { arka: Arka; hostName
 
       <Button type="button" className="mt-4" onClick={shareInvite}><Share2 size={19} /> Share invite</Button>
 
-      <Link to={returnTo} className="mt-2 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#e2dcd2] bg-white px-3 text-sm font-black active:scale-[0.98]">Go to Arka <ArrowRight size={17} /></Link>
+      <Link to={returnTo} className="mt-2 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#e2dcd2] bg-white px-3 text-sm font-black active:scale-[0.98]">{returnLabel} <ArrowRight size={17} /></Link>
 
       <div className="mt-3 min-h-5 text-center" aria-live="polite">{feedback ? <p className="text-xs font-bold text-[#7d5700]">{feedback}</p> : <p className="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-arka-muted"><ShieldCheck size={13} /> Only this invite is shared. You stay in control.</p>}</div>
     </section>

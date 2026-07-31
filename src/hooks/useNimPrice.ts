@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { fetchNimPrice, type NimPriceSnapshot } from '../lib/nimiq/nimPrice'
 
-const initialPrice: NimPriceSnapshot = { usd: 0.00052, updatedAt: '', isLive: false }
+const initialPrice: NimPriceSnapshot = {
+  usd: 0.000461,
+  updatedAt: '',
+  isLive: false,
+  source: 'fallback',
+}
 
 export function useNimPrice() {
   const [price, setPrice] = useState(initialPrice)
@@ -19,4 +24,3 @@ export function useNimPrice() {
 
   return price
 }
-

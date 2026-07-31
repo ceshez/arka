@@ -47,9 +47,12 @@ export function PaymentSummaryCard({
   asset: AssetSymbol
 }) {
   const host = arka.members.find((candidate) => candidate.role === 'host' || candidate.userId === arka.hostId)
-  const recipient = host
-    ? formatPublicIdentity(host.displayName, host.walletAddress ?? arka.hostWalletAddress)
-    : 'Host wallet'
+  const usesSharedFund = arka.fundingMode === 'shared-wallet'
+  const recipient = usesSharedFund
+    ? `Shared fund · ${arka.name}`
+    : host
+      ? formatPublicIdentity(host.displayName, host.walletAddress ?? arka.hostWalletAddress)
+      : 'Host wallet'
   const remaining = getRemainingPaymentAmounts(member)
   const assetAmount = asset === 'NIM'
     ? formatNim(remaining.amountNim)
@@ -68,7 +71,9 @@ export function PaymentSummaryCard({
         <SummaryRow icon={<UserRound size={23} strokeWidth={2.1} />} label="Recipient">
           <span className="flex flex-wrap items-center gap-2">
             <span className="truncate">{recipient}</span>
-            <span className="rounded-full bg-[#fff4d7] px-2.5 py-1 text-sm font-bold text-[#7d5700]">Host wallet</span>
+            <span className="rounded-full bg-[#fff4d7] px-2.5 py-1 text-sm font-bold text-[#7d5700]">
+              {usesSharedFund ? 'Shared wallet' : 'Host wallet'}
+            </span>
           </span>
         </SummaryRow>
 
